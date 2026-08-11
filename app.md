@@ -219,3 +219,20 @@ Dyrektywa Maćka: „platforma powinna wyglądać i działać jak emieszkaniec.p
 ### Znane ograniczenia
 - Limit dokumentu 6 MB (base64 przez JSON); większe pliki = multipart/chunked upload w przyszłym PROMPT.
 - Statement grupuje po miesiącu `booking_date` (fallback `created_at`) — wpisy bez booking_date liczą się do miesiąca utworzenia.
+
+## PROMPT 13 — warstwa zaufania (2026-08-11)
+
+- `src/lib/legal.ts`: `renderRegulamin()` (§1–§8, ustawa o świadczeniu usług drogą elektroniczną) i `renderPolitykaPrywatnosci()` (RODO) — server-side HTML, oznaczone „wersja 1.0 — do przeglądu prawnego".
+- Routes publiczne: `GET /regulamin`, `GET /polityka-prywatnosci` (cache 1h).
+- Landing: 4-kolumnowa stopka (marka, Produkt, Dokumenty prawne, Kontakt + nota PSP); LoginScreen z akceptacją Regulaminu.
+
+## PROMPT 14 — szata graficzna eMieszkaniec (2026-08-11)
+
+Pełny redesign wizualny wg wzorca emieszkaniec.pl (PDF od usera):
+- Design system: granat `brand-navy #14315D`, niebieski `brand-blue #1565C0`, pomarańcz `brand-orange #F26722`; typografia Roboto + Roboto Condensed (nagłówki); tailwind.config inline w `public/index.html`.
+- Landing przebudowany: hero = dwie karty z grubym borderem (niebieska „Platforma operatora" z widgetem live, pomarańczowa „Panel inwestora"), sekcja możliwości w układzie ikona-w-kafelku + tekst z pogrubionym leadem (naprzemiennie niebieski/pomarańczowy), banner KSeF, sekcja korzyści + wielkie pomarańczowe liczby pilotażu, stonowany cennik, jasna stopka.
+- NavShell: granatowy sidebar, aktywna pozycja z pomarańczowym lewym borderem, biały header z condensed tytułem.
+- KpiCard: biała karta z niebieską górną krawędzią (border-t-4), condensed liczby.
+- Chrome odzielone od semantyki: przyciski akcji green→brand-blue; statusy/finanse (credit/debit, fill-bary, badge) pozostały w kolorach semantycznych.
+- Strony legal: akcenty green→blue.
+- E2E: landing (desktop+mobile, screenshoty) + panel master (sidebar/KPI/Mapa live/Agenci przez browser_use) — zero błędów JS.

@@ -50,53 +50,53 @@ function NavShell({
   children: any;
   sidebarWidth?: string;
 }) {
-  // PROMPT 12: mobile drawer (wzór eMieszkaniec — zoptymalizowany pod urządzenia mobilne)
+  // PROMPT 12: mobile drawer. PROMPT 14: szata graficzna eMieszkaniec (granatowy sidebar, pomaranczowy akcent).
   const [menuOpen, setMenuOpen] = useState(false);
   const pick = (id: string) => { setView(id); setMenuOpen(false); };
   return (
-    <div className="min-h-screen bg-gray-50">
-      {menuOpen && <div className="fixed inset-0 bg-black/30 z-20 lg:hidden" onClick={() => setMenuOpen(false)} />}
-      <aside className={`fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-30 flex flex-col transform transition-transform duration-200 lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className="p-6 border-b border-gray-200 flex items-center gap-2">
-          <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+    <div className="min-h-screen bg-gray-100">
+      {menuOpen && <div className="fixed inset-0 bg-black/40 z-20 lg:hidden" onClick={() => setMenuOpen(false)} />}
+      <aside className={`fixed left-0 top-0 h-full w-64 bg-brand-navy z-30 flex flex-col transform transition-transform duration-200 lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className="px-5 py-5 border-b border-white/10 flex items-center gap-2.5">
+          <div className="w-9 h-9 bg-brand-blue rounded-md flex items-center justify-center">
             <Icon d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" className="w-5 h-5 text-white" />
           </div>
-          <span className="font-bold text-lg">edrs.io</span>
+          <span className="font-heading font-bold text-xl text-white tracking-wide">edrs.io</span>
         </div>
-        <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
+        <nav className="py-3 flex-1 overflow-y-auto">
           {nav.map((item) => (
             <button key={item.id} onClick={() => pick(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-left ${
-                activeView === item.id ? "bg-green-50 text-green-700" : "text-gray-700 hover:bg-gray-100"
+              className={`w-full flex items-center gap-3 px-5 py-2.5 text-sm text-left border-l-4 ${
+                activeView === item.id ? "border-brand-orange bg-white/10 text-white font-semibold" : "border-transparent text-blue-100/80 hover:bg-white/5 hover:text-white"
               }`}>
               <Icon d={item.icon} />{item.label}
             </button>
           ))}
         </nav>
-        <div className="p-4 border-t border-gray-200 flex items-center justify-between gap-2">
+        <div className="p-4 border-t border-white/10 flex items-center justify-between gap-2">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center shrink-0">
-              <span className="text-sm font-medium text-green-700">
+            <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center shrink-0">
+              <span className="text-sm font-semibold text-white">
                 {user.name.split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase()}
               </span>
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-medium text-gray-900 truncate">{user.name}</div>
-              <div className="text-xs text-gray-500 truncate">{user.email}</div>
+              <div className="text-sm font-medium text-white truncate">{user.name}</div>
+              <div className="text-xs text-blue-100/60 truncate">{user.email}</div>
             </div>
           </div>
-          <button onClick={onLogout} className="p-2 hover:bg-gray-100 rounded-md shrink-0" title="Wyloguj">
+          <button onClick={onLogout} className="p-2 text-blue-100/70 hover:bg-white/10 hover:text-white rounded-md shrink-0" title="Wyloguj">
             <Icon d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </button>
         </div>
       </aside>
-      <header className="fixed top-0 left-0 lg:left-64 right-0 h-16 bg-white border-b border-gray-200 z-10 flex items-center justify-between px-4 lg:px-6">
+      <header className="fixed top-0 left-0 lg:left-64 right-0 h-16 bg-white border-b-2 border-gray-200 z-10 flex items-center justify-between px-4 lg:px-6">
         <div className="flex items-center gap-3">
           <button className="lg:hidden p-2 hover:bg-gray-100 rounded-md" onClick={() => setMenuOpen(true)} title="Menu">
             <Icon d="M4 6h16M4 12h16M4 18h16" className="w-5 h-5" />
           </button>
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-          <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+          <h2 className="font-heading text-xl font-bold text-brand-navy">{title}</h2>
+          <span className="px-2 py-0.5 bg-brand-bluelight text-brand-bluedark text-xs rounded font-semibold uppercase tracking-wide">
             {user.role === "master" ? "Master" : user.role === "investor" ? "Inwestor" : "Kierowca"}
           </span>
         </div>
@@ -137,196 +137,249 @@ function StatusBadge({ status }: { status: string }) {
 
 function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; inviteToken: string | null }) {
   if (inviteToken) return <SignupScreen token={inviteToken} />;
+  const logoIcon = "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15";
+  const feats = [
+    { t: "Ewidencja", h: "Ewidencja punktow i urzadzen", d: "rejestr lokalizacji, recyklomatow, organizacji i umow z pelna historia zmian. Zaimportuj lub wprowadz dane calej sieci i miej je zawsze pod reka, w jednym miejscu.", i: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" },
+    { t: "Rozliczenia", h: "Automatyczne naliczenia i rozliczenia", d: "oplaty miesieczne naliczane wylacznie ze stawek umownych oraz wielostronne rozliczenie kierowca-inwestor-punkt. Niezmienialny dziennik ksiegowy z kryptograficznym lancuchem zapisow.", i: "M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" },
+    { t: "Mapa live", h: "Mapa i telemetria w czasie rzeczywistym", d: "zapelnienie, statusy urzadzen i zdarzenia operacyjne na mapie Polski. Alerty przepelnienia i brakujacego odbioru docieraja do operatora, zanim zadzwoni punkt.", i: "M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" },
+    { t: "e-Kartoteka", h: "e-Kartoteka inwestora", d: "saldo, wyciag operacji i netting: oplaty potracane z przychodow kaucyjnych. Doplaty online przez licencjonowanego operatora platnosci, ksiegowane automatycznie.", i: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+    { t: "Dokumenty", h: "Cyfrowe archiwum dokumentow", d: "umowy, protokoly i regulaminy online, udostepniane per inwestor lub globalnie. Wersje elektroniczne oraz skany dokumentow papierowych w jednym, uporzadkowanym archiwum.", i: "M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+    { t: "Sprawozdania", h: "Sprawozdania z akceptacja online", d: "miesieczne rozliczenie generowane automatycznie z dziennika ksiegowego, do pobrania i akceptacji jednym klikniecem, z rejestrowanym sladem audytowym.", i: "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+    { t: "Komunikacja", h: "Komunikacja z inwestorami", d: "bezposrednie watki inwestor-operator z historia i licznikiem nieprzeczytanych wiadomosci. Koniec z ustaleniami przez telefon, ktorych nikt nie zapisal.", i: "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" },
+    { t: "Samokontrola", h: "Wewnetrzni agenci systemu", d: "co godzine automatycznie weryfikuja spojnosc danych, lancuch ksiegowy, terminy sporow i naliczenia. System sam pilnuje, zeby wszystko dzialalo sprawnie.", i: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" },
+  ];
+  const benefits = [
+    { b: "dostep online 24/7", r: "system dostepny w chmurze przez szyfrowane polaczenie w przegladarce, bez instalacji oprogramowania." },
+    { b: "audytowalny dziennik ksiegowy", r: "kazdy zapis rozliczeniowy jest niezmienialny i spiety kryptograficznym lancuchem — historia nie do podrobienia." },
+    { b: "role i uprawnienia (RBAC)", r: "operator, inwestor i kierowca widza wylacznie swoje dane. Kazdy inwestor ma odseparowana kartoteke." },
+    { b: "automatyzacja", r: "naliczenia, sprawozdania i kontrola jakosci danych wykonuja sie same — wewnetrzni agenci pracuja co godzine." },
+    { b: "integracje", r: "KSeF (faktury ustrukturyzowane), licencjonowany operator platnosci, import CSV z urzadzen i tras." },
+  ];
   return (
-    <div className="min-h-screen bg-white text-gray-900">
-      <header className="border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-gradient-to-br from-green-500 to-green-700 rounded-xl flex items-center justify-center shadow-sm">
-              <Icon d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" className="w-5 h-5 text-white" />
+    <div className="min-h-screen bg-white text-gray-800">
+      <header className="border-b-2 border-gray-100 bg-white sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-6 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 bg-brand-blue rounded-md flex items-center justify-center">
+              <Icon d={logoIcon} className="w-5 h-5 text-white" />
             </div>
-            <span className="font-bold text-lg">edrs.io</span>
+            <span className="font-heading font-bold text-2xl text-brand-navy">edrs.io</span>
           </div>
-          <nav className="hidden md:flex items-center gap-8 text-sm text-gray-600">
-            <a href="#problem" className="hover:text-gray-900">Problem</a>
-            <a href="#rozwiazanie" className="hover:text-gray-900">Rozwiązanie</a>
-            <a href="#jak-to-dziala" className="hover:text-gray-900">Jak to działa</a>
-            <a href="#pricing" className="hover:text-gray-900">Cennik</a>
+          <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-gray-600">
+            <a href="#rozwiazanie" className="hover:text-brand-blue">Mozliwosci</a>
+            <a href="#korzysci" className="hover:text-brand-blue">Co zyskujesz</a>
+            <a href="#pricing" className="hover:text-brand-blue">Cennik</a>
+            <a href="/regulamin" className="hover:text-brand-blue">Regulamin</a>
           </nav>
           <div className="flex items-center gap-3">
-            <button onClick={onLoginClick} className="text-sm text-gray-700 hover:text-gray-900 font-medium">Zaloguj się</button>
-            <button onClick={onLoginClick} className="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg font-medium hover:bg-gray-800">Demo</button>
+            <button onClick={onLoginClick} className="text-sm text-gray-600 hover:text-brand-blue font-medium">Zaloguj sie</button>
+            <button onClick={onLoginClick} className="px-4 py-2 bg-brand-orange text-white text-sm rounded font-bold hover:bg-brand-orangedark">Przetestuj juz dzis!</button>
           </div>
         </div>
       </header>
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-green-50 via-white to-blue-50" />
-        <div className="absolute inset-0 opacity-40" style={{ backgroundImage: "radial-gradient(circle at 30% 20%, rgba(16,185,129,0.15), transparent 50%), radial-gradient(circle at 70% 60%, rgba(59,130,246,0.12), transparent 50%)" }} />
-        <div className="relative max-w-7xl mx-auto px-6 py-20 lg:py-28">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full mb-6">
-                <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                Polska premiera 1 października 2025
+
+      <section className="bg-white">
+        <div className="max-w-7xl mx-auto px-6 pt-10 pb-4 text-center">
+          <h1 className="font-heading text-3xl lg:text-4xl font-bold text-brand-navy leading-tight max-w-4xl mx-auto">
+            Poznaj edrs.io — kompleksowy system do zarzadzania i rozliczen sieci kaucyjnej poza handlem
+          </h1>
+          <p className="text-gray-600 mt-4 max-w-3xl mx-auto">
+            Telemetria recyklomatow, wielostronne rozliczenia i e-kartoteka inwestora w jednej audytowalnej petli.
+            Bez szacunkow, bez telefonow, bez arkuszy.
+          </p>
+        </div>
+        <div className="max-w-7xl mx-auto px-6 py-10 grid lg:grid-cols-2 gap-8">
+          <div className="rounded-3xl border-4 border-brand-blue p-8 flex flex-col">
+            <div className="font-heading text-2xl font-bold text-gray-400 text-center mb-6">Platforma operatora sieci RVM</div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Stan sieci - LIVE</div>
+                <div className="flex items-center gap-1.5 text-xs text-brand-blue font-semibold"><span className="live-dot" />online</div>
               </div>
-              <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6 leading-tight">
-                Koniec z Excelem i telefonem. Rozliczaj sieć RVM w czasie rzeczywistym.
-              </h1>
-              <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-                edrs.io łączy dane z recyklomatów, GPS floty i wielostronne rozliczenie
-                kierowca–inwestor–punkt w jednej pętli audytowalnej. Z automatycznymi fakturami KSeF.
-                Bez szacunków, bez telefonów, bez arkuszy.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <button onClick={onLoginClick} className="px-6 py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 inline-flex items-center gap-2 shadow-lg">
-                  Zobacz demo na żywo <Icon d="M9 5l7 7-7 7" className="w-4 h-4" />
-                </button>
-                <a href="#jak-to-dziala" className="px-6 py-3 bg-white border border-gray-200 text-gray-900 rounded-lg font-semibold hover:bg-gray-50">Jak to działa</a>
-              </div>
-              <div className="flex items-center gap-6 mt-8 text-sm text-gray-500">
-                <div className="flex items-center gap-1.5"><Icon d="M5 13l4 4L19 7" className="w-4 h-4 text-green-600" /><span>Bez umowy na start</span></div>
-                <div className="flex items-center gap-1.5"><Icon d="M5 13l4 4L19 7" className="w-4 h-4 text-green-600" /><span>Pilot w 14 dni</span></div>
-                <div className="flex items-center gap-1.5"><Icon d="M5 13l4 4L19 7" className="w-4 h-4 text-green-600" /><span>KSeF w cenie</span></div>
-              </div>
-            </div>
-            <div className="relative">
-              <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Stan sieci · LIVE</div>
-                  <div className="flex items-center gap-1.5 text-xs text-green-600">
-                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />online
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {[
-                    { id: "NET-003 Ursynów", fill: 94, color: "bg-red-500" },
-                    { id: "NET-007 Ursus", fill: 91, color: "bg-red-500" },
-                    { id: "NET-001 Wilanów", fill: 87, color: "bg-red-500" },
-                    { id: "NET-005 Wola", fill: 78, color: "bg-yellow-500" },
-                    { id: "NET-009 Ochota", fill: 73, color: "bg-yellow-500" },
-                    { id: "NET-002 Mokotów", fill: 62, color: "bg-yellow-500" },
-                    { id: "NET-008 Bemowo", fill: 56, color: "bg-green-500" },
-                    { id: "NET-010 Targówek", fill: 49, color: "bg-green-500" },
-                    { id: "NET-004 Bielany", fill: 41, color: "bg-green-500" },
-                    { id: "NET-006 Praga", fill: 23, color: "bg-green-500" },
-                  ].map((p) => (
-                    <div key={p.id} className="flex items-center gap-3 text-xs">
-                      <div className="w-32 text-gray-600 font-mono truncate">{p.id}</div>
-                      <div className="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                        <div className={`${p.color} h-full`} style={{ width: `${p.fill}%` }} />
-                      </div>
-                      <div className="w-10 text-right font-mono tabular-nums">{p.fill}%</div>
+              <div className="space-y-2">
+                {[
+                  { id: "NET-003 Ursynow", fill: 94, color: "bg-red-500" },
+                  { id: "NET-007 Ursus", fill: 91, color: "bg-red-500" },
+                  { id: "NET-005 Wola", fill: 78, color: "bg-yellow-500" },
+                  { id: "NET-002 Mokotow", fill: 62, color: "bg-yellow-500" },
+                  { id: "NET-008 Bemowo", fill: 56, color: "bg-brand-blue" },
+                  { id: "NET-006 Praga", fill: 23, color: "bg-brand-blue" },
+                ].map((pt) => (
+                  <div key={pt.id} className="flex items-center gap-3 text-xs">
+                    <div className="w-32 text-gray-600 font-mono truncate">{pt.id}</div>
+                    <div className="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                      <div className={`${pt.color} h-full`} style={{ width: `${pt.fill}%` }} />
                     </div>
-                  ))}
-                </div>
-                <div className="mt-5 pt-5 border-t border-gray-100 grid grid-cols-3 gap-3 text-center">
-                  <div><div className="text-2xl font-bold text-gray-900">10</div><div className="text-xs text-gray-500">punktów</div></div>
-                  <div><div className="text-2xl font-bold text-gray-900">5</div><div className="text-xs text-gray-500">kierowców</div></div>
-                  <div><div className="text-2xl font-bold text-green-600">36k zł</div><div className="text-xs text-gray-500">ARR</div></div>
-                </div>
+                    <div className="w-10 text-right font-mono tabular-nums">{pt.fill}%</div>
+                  </div>
+                ))}
               </div>
+              <p className="text-sm text-gray-600 mt-5 leading-relaxed">
+                Ewidencja punktow, mapa live, cykle rozliczeniowe, import CSV, spory i katalog opakowan —
+                wszystko w jednym panelu, z pelna historia zdarzen.
+              </p>
             </div>
+            <button onClick={onLoginClick} className="font-heading text-xl font-bold text-brand-blue hover:text-brand-bluedark mt-6 text-center w-full">Przetestuj juz dzis!</button>
+          </div>
+          <div className="rounded-3xl border-4 border-brand-orange p-8 flex flex-col">
+            <div className="font-heading text-2xl font-bold text-gray-400 text-center mb-6">Panel inwestora online</div>
+            <div className="flex-1">
+              <ul className="space-y-3 text-sm text-gray-600">
+                {[
+                  ["Pulpit i mapa live", "wylacznie wlasne punkty i zdarzenia inwestora"],
+                  ["e-Kartoteka", "saldo, wyciag operacji, naliczenia i netting z kaucji"],
+                  ["Platnosci online", "doplata salda przez operatora platnosci, ksiegowana automatycznie"],
+                  ["Sprawozdania", "miesieczne rozliczenie z akceptacja jednym kliknieciem"],
+                  ["Dokumenty i komunikacja", "archiwum umow oraz bezposredni watek z operatorem"],
+                ].map(([b, r]) => (
+                  <li key={b} className="flex gap-2.5">
+                    <Icon d="M5 13l4 4L19 7" className="w-4 h-4 text-brand-orange shrink-0 mt-0.5" />
+                    <span><b className="text-gray-800">{b}</b> — {r}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-sm text-gray-600 mt-5 leading-relaxed">
+                Kazdy inwestor loguje sie do wlasnej, odseparowanej kartoteki — jak mieszkaniec do panelu wspolnoty.
+              </p>
+            </div>
+            <button onClick={onLoginClick} className="font-heading text-xl font-bold text-brand-orange hover:text-brand-orangedark mt-6 text-center w-full">Zobacz demo panelu</button>
           </div>
         </div>
       </section>
-      {/* PROMPT 12: kafelki modułów (wzór eMieszkaniec — „Poznaj możliwości") */}
-      <section id="rozwiazanie" className="py-20 lg:py-24 bg-gray-50 border-t border-gray-100">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="max-w-2xl mb-14">
-            <div className="text-sm font-medium text-green-600 mb-2 uppercase tracking-wider">Moduły platformy</div>
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">Poznaj możliwości Twojego nowego systemu</h2>
-            <p className="text-lg text-gray-600">Kompletne rozwiązanie dla operatorów sieci RVM, inwestorów i punktów zbiórki. Minimalizm opcji w każdym widoku.</p>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {[
-              { t: "Ewidencja punktów i urządzeń", d: "Rejestr lokalizacji, recyklomatów i organizacji z pełną historią.", i: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" },
-              { t: "Mapa live i telemetria", d: "Zapełnienie, statusy i spory na mapie Polski w czasie rzeczywistym.", i: "M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" },
-              { t: "Automatyczne naliczenia", d: "Opłaty miesięczne ze stawek umownych — bez arkuszy, bez ręcznej pracy.", i: "M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" },
-              { t: "e-Kartoteka inwestora", d: "Saldo, wyciąg i netting: opłaty potrącane z przychodów kaucyjnych.", i: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
-              { t: "Płatności online", d: "Dopłaty przez PolCard/Fiserv, księgowane automatycznie w ledgerze.", i: "M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" },
-              { t: "Sprawozdania z akceptacją", d: "Miesięczne rozliczenie do pobrania + akceptacja jednym kliknięciem.", i: "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
-              { t: "Archiwum dokumentów", d: "Umowy, protokoły i regulaminy online — per inwestor lub globalnie.", i: "M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
-              { t: "Komunikacja", d: "Bezpośrednie wątki inwestor–operator z historią i licznikiem nieprzeczytanych.", i: "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" },
-            ].map((m) => (
-              <div key={m.t} className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center mb-4">
-                  <Icon d={m.i} className="w-5 h-5 text-green-600" />
+
+      <section id="rozwiazanie" className="py-16 bg-white">
+        <div className="max-w-6xl mx-auto px-6">
+          <h2 className="font-heading text-3xl font-bold text-brand-navy text-center mb-12 max-w-3xl mx-auto">
+            Poznaj mozliwosci Twojego nowego systemu
+          </h2>
+          <div className="grid md:grid-cols-2 gap-x-12 gap-y-10">
+            {feats.map((m, idx) => {
+              const c = idx % 2 === 0 ? "blue" : "orange";
+              const border = c === "blue" ? "border-brand-blue" : "border-brand-orange";
+              const text = c === "blue" ? "text-brand-blue" : "text-brand-orange";
+              return (
+                <div key={m.t} className="flex gap-5">
+                  <div className="shrink-0 w-20">
+                    <div className={`w-16 h-16 border-2 ${border} rounded-2xl flex items-center justify-center bg-white`}>
+                      <Icon d={m.i} className={`w-8 h-8 ${text}`} />
+                    </div>
+                    <div className={`text-[11px] font-bold ${text} text-center mt-1.5 leading-tight`}>{m.t}</div>
+                  </div>
+                  <p className="text-sm text-gray-600 leading-relaxed text-justify">
+                    <b className="text-gray-900">{m.h}</b> — {m.d}
+                  </p>
                 </div>
-                <div className="font-semibold text-gray-900 mb-1.5">{m.t}</div>
-                <div className="text-sm text-gray-600 leading-relaxed">{m.d}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
-      <section className="py-20 lg:py-24 bg-white border-t border-gray-100">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="max-w-2xl mb-14">
-            <div className="text-sm font-medium text-green-600 mb-2 uppercase tracking-wider">Cennik</div>
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">Prosty cennik. Płać za wartość.</h2>
-            <p className="text-lg text-gray-600">Stały abonament za punkt + 0,5% od wolumenu kaucji. KSeF, KPO i Bank Data Room w cenie.</p>
+
+      <section className="py-10 bg-white">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="rounded-3xl border-4 border-brand-orange p-8 lg:p-10">
+            <h3 className="font-heading text-2xl font-bold text-brand-navy mb-3">Polacz swoja siec kaucyjna z KSeF!</h3>
+            <p className="text-sm text-gray-600 leading-relaxed max-w-4xl">
+              Od 2026 roku faktury ustrukturyzowane staja sie obowiazkowe dla kolejnych grup podatnikow.
+              edrs.io wystawia faktury rozliczeniowe automatycznie na podstawie dziennika ksiegowego
+              i przygotowuje je w formacie gotowym do wysylki do Krajowego Systemu e-Faktur.
+            </p>
+            <div className="font-heading text-xl font-bold text-brand-orange text-center mt-6">Faktury KSeF w cenie platformy — bez dodatkowych modulow</div>
           </div>
+        </div>
+      </section>
+
+      <section id="korzysci" className="py-16 bg-white">
+        <div className="max-w-6xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-start">
+          <div>
+            <h2 className="font-heading text-2xl font-bold text-brand-navy mb-6">Sprawdz, co zyskujesz korzystajac z naszej platformy!</h2>
+            <ul className="space-y-4 text-sm text-gray-600">
+              {benefits.map((x) => (
+                <li key={x.b} className="flex gap-2.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand-blue shrink-0 mt-1.5" />
+                  <span className="text-justify leading-relaxed"><b className="text-gray-900">{x.b}</b> — {x.r}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="text-center pt-4">
+            <div className="font-heading text-xl font-bold text-brand-orange mb-8">Z pilotazu platformy korzysta juz</div>
+            <div className="grid grid-cols-3 gap-6">
+              <div><div className="font-heading text-5xl lg:text-6xl font-bold text-brand-orange">10</div><div className="font-heading font-bold text-brand-orange mt-1">punktow<br/>pilotazu</div></div>
+              <div><div className="font-heading text-5xl lg:text-6xl font-bold text-brand-orange">5</div><div className="font-heading font-bold text-brand-orange mt-1">kierowcow<br/>w sieci</div></div>
+              <div><div className="font-heading text-5xl lg:text-6xl font-bold text-brand-orange">36 tys.</div><div className="font-heading font-bold text-brand-orange mt-1">zl ARR<br/>pilotazu</div></div>
+            </div>
+            <div className="text-xs text-gray-400 mt-6">Dane z pilotazu referencyjnego operatora sieci RVM (Warszawa).</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="pricing" className="py-16 bg-gray-50 border-t border-gray-100">
+        <div className="max-w-6xl mx-auto px-6">
+          <h2 className="font-heading text-3xl font-bold text-brand-navy text-center mb-3">Prosty cennik. Placisz za wartosc.</h2>
+          <p className="text-gray-600 text-center mb-10">Staly abonament za punkt + 0,5% od wolumenu kaucji. KSeF i sprawozdania w cenie.</p>
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
-              <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">Abonament platformy</div>
-              <div className="mt-3 flex items-baseline gap-1"><div className="text-4xl font-bold text-gray-900">149 zł</div><div className="text-sm text-gray-500">/ punkt / mc</div></div>
-              <div className="text-sm text-gray-500 mt-1">netto · stała opłata</div>
+            <div className="bg-white p-8 rounded-2xl border-2 border-gray-200">
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Abonament platformy</div>
+              <div className="mt-3 flex items-baseline gap-1"><div className="font-heading text-4xl font-bold text-brand-navy">149 zl</div><div className="text-sm text-gray-500">/ punkt / mc</div></div>
+              <div className="text-sm text-gray-500 mt-1">netto - stala oplata</div>
             </div>
-            <div className="bg-white p-8 rounded-2xl border-2 border-green-500 shadow-md relative">
-              <div className="absolute top-4 right-4 px-2 py-1 bg-green-500 text-white text-xs rounded-full font-medium">skaluje się</div>
-              <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">Settlement fee</div>
-              <div className="mt-3 flex items-baseline gap-1"><div className="text-4xl font-bold text-gray-900">0,5%</div><div className="text-sm text-gray-500">wolumenu kaucji</div></div>
-              <div className="text-sm text-gray-500 mt-1">netto · tylko od sukcesu</div>
+            <div className="bg-white p-8 rounded-2xl border-4 border-brand-blue relative">
+              <div className="absolute top-4 right-4 px-2 py-1 bg-brand-blue text-white text-xs rounded font-bold">skaluje sie</div>
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Settlement fee</div>
+              <div className="mt-3 flex items-baseline gap-1"><div className="font-heading text-4xl font-bold text-brand-navy">0,5%</div><div className="text-sm text-gray-500">wolumenu kaucji</div></div>
+              <div className="text-sm text-gray-500 mt-1">netto - tylko od sukcesu</div>
             </div>
-            <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-8 rounded-2xl shadow-xl text-white">
-              <div className="text-sm font-medium text-gray-300 uppercase tracking-wider">Bank Data Room</div>
-              <div className="mt-3 flex items-baseline gap-1"><div className="text-4xl font-bold">0 zł</div><div className="text-sm text-gray-300">dodatkowo</div></div>
-              <div className="text-sm text-gray-300 mt-1">w cenie platformy</div>
+            <div className="bg-white p-8 rounded-2xl border-2 border-brand-orange">
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Bank Data Room</div>
+              <div className="mt-3 flex items-baseline gap-1"><div className="font-heading text-4xl font-bold text-brand-navy">0 zl</div><div className="text-sm text-gray-500">dodatkowo</div></div>
+              <div className="text-sm text-gray-500 mt-1">w cenie platformy</div>
             </div>
           </div>
         </div>
       </section>
-      <footer className="bg-gray-900 text-gray-400">
-        <div className="max-w-7xl mx-auto px-6 py-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-10">
+
+      <footer className="bg-white border-t-2 border-gray-100">
+        <div className="max-w-7xl mx-auto px-6 py-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-10 text-sm text-gray-500">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-                <Icon d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" className="w-5 h-5 text-white" />
+              <div className="w-8 h-8 bg-brand-blue rounded-md flex items-center justify-center">
+                <Icon d={logoIcon} className="w-5 h-5 text-white" />
               </div>
-              <span className="font-bold text-lg text-white">edrs.io</span>
+              <span className="font-heading font-bold text-xl text-brand-navy">edrs.io</span>
             </div>
-            <p className="text-sm leading-relaxed">System operacyjny sieci kaucyjnej poza handlem. Telemetria, rozliczenia wielostronne i e-kartoteka inwestora w jednej audytowalnej pętli.</p>
+            <p className="leading-relaxed">System operacyjny sieci kaucyjnej poza handlem. Telemetria, rozliczenia wielostronne i e-kartoteka inwestora w jednej audytowalnej petli.</p>
           </div>
           <div>
-            <div className="text-white font-semibold text-sm mb-4 uppercase tracking-wider">Produkt</div>
-            <ul className="space-y-2 text-sm">
-              <li><a href="#rozwiazanie" className="hover:text-white">Moduły platformy</a></li>
-              <li><a href="#pricing" className="hover:text-white">Cennik</a></li>
-              <li><a href="#jak-to-dziala" className="hover:text-white">Jak to działa</a></li>
+            <div className="font-heading text-brand-navy font-bold mb-4 uppercase tracking-wider text-xs">Produkt</div>
+            <ul className="space-y-2">
+              <li><a href="#rozwiazanie" className="hover:text-brand-blue">Mozliwosci systemu</a></li>
+              <li><a href="#korzysci" className="hover:text-brand-blue">Co zyskujesz</a></li>
+              <li><a href="#pricing" className="hover:text-brand-blue">Cennik</a></li>
             </ul>
           </div>
           <div>
-            <div className="text-white font-semibold text-sm mb-4 uppercase tracking-wider">Dokumenty</div>
-            <ul className="space-y-2 text-sm">
-              <li><a href="/regulamin" className="hover:text-white">Regulamin platformy</a></li>
-              <li><a href="/polityka-prywatnosci" className="hover:text-white">Polityka prywatności (RODO)</a></li>
+            <div className="font-heading text-brand-navy font-bold mb-4 uppercase tracking-wider text-xs">Dokumenty</div>
+            <ul className="space-y-2">
+              <li><a href="/regulamin" className="hover:text-brand-blue">Regulamin platformy</a></li>
+              <li><a href="/polityka-prywatnosci" className="hover:text-brand-blue">Polityka prywatnosci (RODO)</a></li>
             </ul>
           </div>
           <div>
-            <div className="text-white font-semibold text-sm mb-4 uppercase tracking-wider">Kontakt</div>
-            <ul className="space-y-2 text-sm">
+            <div className="font-heading text-brand-navy font-bold mb-4 uppercase tracking-wider text-xs">Kontakt</div>
+            <ul className="space-y-2">
               <li>kontakt@edrs.io</li>
               <li>Warszawa, Polska</li>
-              <li className="pt-2 text-xs text-gray-500">Operatorem platformy jest NET4ZERO. Płatności obsługuje licencjonowany dostawca usług płatniczych.</li>
+              <li className="pt-2 text-xs text-gray-400">Operatorem platformy jest NET4ZERO. Platnosci obsluguje licencjonowany dostawca uslug platniczych.</li>
             </ul>
           </div>
         </div>
-        <div className="border-t border-gray-800">
-          <div className="max-w-7xl mx-auto px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
-            <span>© 2026 edrs.io · NET4ZERO · Wszystkie prawa zastrzeżone</span>
+        <div className="border-t border-gray-100">
+          <div className="max-w-7xl mx-auto px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-400">
+            <span>(c) 2026 edrs.io - NET4ZERO - Wszystkie prawa zastrzezone</span>
             <span className="flex gap-4">
-              <a href="/regulamin" className="hover:text-white">Regulamin</a>
-              <a href="/polityka-prywatnosci" className="hover:text-white">Polityka prywatności</a>
+              <a href="/regulamin" className="hover:text-brand-blue">Regulamin</a>
+              <a href="/polityka-prywatnosci" className="hover:text-brand-blue">Polityka prywatnosci</a>
             </span>
           </div>
         </div>
@@ -351,11 +404,11 @@ function LoginScreen({ onSuccess }: { onSuccess: (u: User) => void }) {
     finally { setBusy(false); }
   };
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <form onSubmit={submit} className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-            <Icon d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" className="w-8 h-8 text-green-600" />
+            <Icon d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" className="w-8 h-8 text-brand-blue" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">edrs.io</h1>
           <p className="text-sm text-gray-500 mt-1">System operacyjny sieci kaucyjnej poza handlem</p>
@@ -370,7 +423,7 @@ function LoginScreen({ onSuccess }: { onSuccess: (u: User) => void }) {
             <input type="password" value={password} onChange={(e) => setPassword((e.target as HTMLInputElement).value)} required className="w-full px-3 py-2 border border-gray-300 rounded-md" />
           </div>
           {error && <div className="text-sm text-red-700 bg-red-50 p-2 rounded">{error}</div>}
-          <button type="submit" disabled={busy} className="w-full bg-green-600 text-white py-2.5 rounded-md font-medium hover:bg-green-700 disabled:opacity-50">{busy ? "Logowanie..." : "Zaloguj się"}</button>
+          <button type="submit" disabled={busy} className="w-full bg-brand-blue text-white py-2.5 rounded-md font-medium hover:bg-brand-bluedark disabled:opacity-50">{busy ? "Logowanie..." : "Zaloguj się"}</button>
           <div className="text-xs text-gray-500 border-t border-gray-200 pt-3">
             <div className="font-medium mb-1">Konta demo (hasło: edrs2026):</div>
             <div>maciej@net4zero.pl — master</div>
@@ -379,7 +432,7 @@ function LoginScreen({ onSuccess }: { onSuccess: (u: User) => void }) {
             <div>kierowca@net4zero.pl — kierowca</div>
           </div>
           <div className="text-xs text-gray-400 text-center pt-1">
-            Logując się akceptujesz <a href="/regulamin" className="text-green-700 hover:underline">Regulamin</a> i <a href="/polityka-prywatnosci" className="text-green-700 hover:underline">Politykę prywatności</a>.
+            Logując się akceptujesz <a href="/regulamin" className="text-brand-blue hover:underline">Regulamin</a> i <a href="/polityka-prywatnosci" className="text-brand-blue hover:underline">Politykę prywatności</a>.
           </div>
         </div>
       </form>
@@ -409,7 +462,7 @@ function SignupScreen({ token }: { token: string }) {
   };
   if (done) return <div className="min-h-screen flex items-center justify-center bg-green-50"><div className="bg-white p-8 rounded-lg shadow-lg text-center"><Icon d="M5 13l4 4L19 7" className="w-12 h-12 text-green-600 mx-auto mb-4" /><h2 className="text-2xl font-bold text-gray-900">Konto utworzone</h2><p className="text-gray-600 mt-2">Przekierowuję do panelu...</p></div></div>;
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <form onSubmit={submit} className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
         <div className="text-center mb-8"><h1 className="text-2xl font-bold text-gray-900">Rejestracja</h1>{invite && <p className="text-sm text-gray-500 mt-1">Zaproszenie dla: <span className="font-medium text-gray-700">{invite.label}</span></p>}</div>
         {invite && <div className="space-y-4">
@@ -417,7 +470,7 @@ function SignupScreen({ token }: { token: string }) {
           <div><label className="block text-sm font-medium text-gray-700 mb-1">Imię i nazwisko</label><input type="text" value={name} onChange={(e) => setName((e.target as HTMLInputElement).value)} required className="w-full px-3 py-2 border border-gray-300 rounded-md" /></div>
           <div><label className="block text-sm font-medium text-gray-700 mb-1">Hasło (min 6 znaków)</label><input type="password" value={password} onChange={(e) => setPassword((e.target as HTMLInputElement).value)} required minLength={6} className="w-full px-3 py-2 border border-gray-300 rounded-md" /></div>
           {error && <div className="text-sm text-red-700 bg-red-50 p-2 rounded">{error}</div>}
-          <button type="submit" disabled={busy} className="w-full bg-green-600 text-white py-2.5 rounded-md font-medium hover:bg-green-700 disabled:opacity-50">{busy ? "Tworzenie konta..." : "Utwórz konto"}</button>
+          <button type="submit" disabled={busy} className="w-full bg-brand-blue text-white py-2.5 rounded-md font-medium hover:bg-brand-bluedark disabled:opacity-50">{busy ? "Tworzenie konta..." : "Utwórz konto"}</button>
         </div>}
       </form>
     </div>
@@ -488,9 +541,9 @@ function MasterDashboard({ overview }: { overview: any }) {
 
 function KpiCard({ label, value, sub }: { label: string; value: any; sub?: string }) {
   return (
-    <div className="bg-white p-5 rounded-lg border border-gray-200">
-      <div className="text-sm text-gray-500">{label}</div>
-      <div className="text-2xl font-bold mt-1">{value}</div>
+    <div className="bg-white p-5 rounded-md border border-gray-200 border-t-4 border-t-brand-blue shadow-sm">
+      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{label}</div>
+      <div className="font-heading text-3xl font-bold text-brand-navy mt-1 tabular-nums">{value}</div>
       {sub && <div className="text-xs text-gray-500 mt-2">{sub}</div>}
     </div>
   );
@@ -580,7 +633,7 @@ function MasterCycles({ cycles, onReload }: { cycles: any[]; onReload: () => voi
                   <button
                     onClick={() => approve(c.id)}
                     disabled={busy}
-                    className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-md hover:bg-green-700 disabled:opacity-50"
+                    className="px-3 py-1.5 bg-brand-blue text-white text-xs rounded-md hover:bg-brand-bluedark disabled:opacity-50"
                   >
                     Zatwierdź cykl (approve)
                   </button>
@@ -870,7 +923,7 @@ function MasterCsvImport({ cycles, onReload }: { cycles: any[]; onReload: () => 
                   </tbody>
                 </table>
               </div>
-              <button onClick={() => setStep(2)} className="px-4 py-2 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700">Przejdź do mapowania kolumn</button>
+              <button onClick={() => setStep(2)} className="px-4 py-2 bg-brand-blue text-white rounded text-sm font-medium hover:bg-brand-bluedark">Przejdź do mapowania kolumn</button>
             </div>
           )}
         </div>
@@ -910,7 +963,7 @@ function MasterCsvImport({ cycles, onReload }: { cycles: any[]; onReload: () => 
           )}
 
           <div className="flex gap-2 pt-2">
-            <button onClick={executeDryRun} disabled={busy} className="px-4 py-2 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 disabled:opacity-50">
+            <button onClick={executeDryRun} disabled={busy} className="px-4 py-2 bg-brand-blue text-white rounded text-sm font-medium hover:bg-brand-bluedark disabled:opacity-50">
               {busy ? "Analizuję (Dry-Run)..." : "Uruchom symulację (Dry-Run)"}
             </button>
             <button onClick={() => setStep(1)} className="px-4 py-2 bg-gray-200 text-gray-700 rounded text-sm">Cofnij</button>
@@ -977,7 +1030,7 @@ function MasterCsvImport({ cycles, onReload }: { cycles: any[]; onReload: () => 
           </div>
 
           <div className="flex gap-2 pt-2 border-t border-gray-100">
-            <button onClick={executeCommit} disabled={dryRunRes.deltas.insertedEvents === 0 || busy} className="px-5 py-2.5 bg-green-600 text-white rounded text-sm font-semibold hover:bg-green-700 disabled:opacity-50 shadow-lg">
+            <button onClick={executeCommit} disabled={dryRunRes.deltas.insertedEvents === 0 || busy} className="px-5 py-2.5 bg-brand-blue text-white rounded text-sm font-semibold hover:bg-brand-bluedark disabled:opacity-50 shadow-lg">
               {busy ? "Zapisuję..." : "Zatwierdź i zapisz w ledgerze (transakcyjnie)"}
             </button>
             <button onClick={() => setStep(2)} className="px-4 py-2 bg-gray-200 text-gray-700 rounded text-sm">Cofnij mapowanie</button>
@@ -1000,7 +1053,7 @@ function MasterCsvImport({ cycles, onReload }: { cycles: any[]; onReload: () => 
             <div><strong>Pominiętych duplikatów:</strong> {commitRes.skippedDuplicates}</div>
             <div><strong>Timestamp:</strong> {fmtDateTime(Date.now())}</div>
           </div>
-          <button onClick={() => { setStep(1); setFilename(""); setCsvHeaders([]); setDryRunRes(null); setCommitRes(null); }} className="px-4 py-2 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700">Importuj kolejny plik</button>
+          <button onClick={() => { setStep(1); setFilename(""); setCsvHeaders([]); setDryRunRes(null); setCommitRes(null); }} className="px-4 py-2 bg-brand-blue text-white rounded text-sm font-medium hover:bg-brand-bluedark">Importuj kolejny plik</button>
         </div>
       )}
     </div>
@@ -2256,7 +2309,7 @@ function DocTable({ docs, showOrg, onDelete }: { docs: any[]; showOrg?: boolean;
             <td className="py-1.5 font-medium">{d.title}</td>
             <td>{DOC_CAT_LABELS[d.category] ?? d.category}</td>
             {showOrg && <td>{d.org_name ?? "Wszyscy inwestorzy"}</td>}
-            <td><a href={`/api/documents/${d.id}/download`} target="_blank" className="text-green-700 hover:underline">{d.filename}</a></td>
+            <td><a href={`/api/documents/${d.id}/download`} target="_blank" className="text-brand-blue hover:underline">{d.filename}</a></td>
             <td className="text-right">{fmtBytes(Number(d.size_bytes))}</td>
             <td className="text-right">{new Date(d.created_at).toLocaleDateString("pl-PL")}</td>
             <td className="text-right">{onDelete && <button onClick={() => onDelete(d.id)} className="text-xs text-red-600 hover:underline">Usuń</button>}</td>
@@ -2374,7 +2427,7 @@ function InvestorSprawozdania() {
                 <td className={`text-right ${Number(r.net) >= 0 ? "text-green-700" : "text-red-700"}`}>{fmt(Number(r.net))}</td>
                 <td>{r.accepted_at ? <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">zaakceptowane</span> : <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">oczekuje</span>}</td>
                 <td className="text-right space-x-2">
-                  <a href={`/api/investor/statements/${r.period}/html`} target="_blank" className="text-green-700 hover:underline text-xs">Otwórz</a>
+                  <a href={`/api/investor/statements/${r.period}/html`} target="_blank" className="text-brand-blue hover:underline text-xs">Otwórz</a>
                   {!r.accepted_at && <button onClick={() => accept(r.period)} className="text-xs px-2 py-1 bg-gray-900 text-white rounded hover:bg-gray-700">Akceptuję</button>}
                 </td>
               </tr>
@@ -2404,7 +2457,7 @@ function MasterSprawozdania() {
               <td className="text-right">{r.entries}</td>
               <td className={`text-right ${Number(r.net) >= 0 ? "text-green-700" : "text-red-700"}`}>{fmt(Number(r.net))}</td>
               <td>{r.accepted_at ? <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">zaakceptowane {new Date(Number(r.accepted_at)).toLocaleDateString("pl-PL")}</span> : <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">oczekuje</span>}</td>
-              <td className="text-right"><a href={`/api/admin/statements/${r.org_id}/${r.period}/html`} target="_blank" className="text-green-700 hover:underline text-xs">Otwórz</a></td>
+              <td className="text-right"><a href={`/api/admin/statements/${r.org_id}/${r.period}/html`} target="_blank" className="text-brand-blue hover:underline text-xs">Otwórz</a></td>
             </tr>
           ))}
           {rows.length === 0 && <tr><td colSpan={6} className="py-2 text-gray-500">Brak danych</td></tr>}

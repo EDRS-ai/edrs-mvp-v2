@@ -9,11 +9,11 @@ const shell = (title: string, body: string) => `<!doctype html><html lang="pl"><
 <style>
   body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:0;color:#111827;line-height:1.65}
   header{border-bottom:1px solid #f3f4f6;padding:16px 24px;display:flex;align-items:center;gap:10px}
-  .logo{width:32px;height:32px;background:linear-gradient(135deg,#10b981,#047857);border-radius:10px}
-  header b{font-size:17px} header a{margin-left:auto;color:#047857;text-decoration:none;font-size:14px;font-weight:600}
+  .logo{width:32px;height:32px;background:linear-gradient(135deg,#1565C0,#0D47A1);border-radius:10px}
+  header b{font-size:17px} header a{margin-left:auto;color:#0D47A1;text-decoration:none;font-size:14px;font-weight:600}
   main{max-width:760px;margin:0 auto;padding:48px 24px 80px}
   h1{font-size:28px;margin:0 0 4px} .ver{color:#6b7280;font-size:13px;margin-bottom:32px}
-  h2{font-size:17px;margin:32px 0 8px;color:#065f46}
+  h2{font-size:17px;margin:32px 0 8px;color:#14315D}
   p,li{font-size:14.5px;color:#374151} ul{padding-left:20px}
   table{width:100%;border-collapse:collapse;font-size:13.5px;margin:12px 0}
   th{text-align:left;border-bottom:2px solid #e5e7eb;padding:8px;color:#6b7280;font-size:12px;text-transform:uppercase}
