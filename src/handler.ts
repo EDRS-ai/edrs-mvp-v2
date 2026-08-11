@@ -19,6 +19,7 @@ import { parseCsv, validateCredits, validateReceipts, validateCollections } from
 import { runSettlementEngine, approveCycle, reopenCycle, getLedgerForCycle, insertLedgerEntry } from "./lib/settlement";
 import { runFullReconciliation, transitionDisputeState, executeDefaultAction, getAlertLevel, isOverdue, businessDaysBetween } from "./lib/reconciliation";
 import { buildEventStream, mapSnapshot, parseCats, resolveCursor, emitEvent as emitRealtimeEvent, emitLocationUpdate } from "./lib/realtime";
+import { runAllAgents } from "./lib/agents";
 
 type Bindings = { sql: any; websocket: any; ctx: AppCtx };
 
@@ -164,6 +165,17 @@ export function createApp() {
   const requireInvestor = requireRole("investor");
   const requireDriver = requireRole("driver");
   const requireMasterOrInvestor = requireRole("master", "investor");
+
+  // PROMPT 8: mapowanie legacy investors.id → organizations.id. Seed PROMPT 1 celowo
+  // trzyma IDENTYCZNE nazwy w obu tabelach — join po nazwie, bez magic numbers.
+  function investorOrgIdOf(env: any, investorId: number | null): number | null {
+    if (!investorId) return null;
+    const r = env.sql.query<{ id: number }>(
+      "SELECT o.id FROM organizations o JOIN investors i ON i.name = o.name WHERE i.id = ? LIMIT 1",
+      [investorId]
+    );
+    return r[0]?.id ?? null;
+  }
 
   app.get("/api/admin/overview", requireMaster, async (c) => {
     const investorCount = Number(c.env.sql.query<{ n: number }>("SELECT COUNT(*) AS n FROM investors WHERE status='active'")[0].n);
@@ -532,14 +544,36 @@ export function createApp() {
     return c.json({ events: rows });
   });
 
+  // ─── PROMPT 8: agenci wewnętrzni ────────────────────────────────────────
+  // Deterministyczna automatyzacja (zero LLM w pętli): health check, data quality
+  // (hash chain ledgera), dispute deadlines. Cron co godzinę (onSchedule) + ręczny
+  // trigger na demo/debug. Każdy run audytowalny w event_log (agent.run_completed).
+  app.post("/api/admin/agents/run", requireMaster, async (c) => {
+    const { results, bucket } = runAllAgents(c.env, { force: true });
+    return c.json({ ok: true, bucket, results });
+  });
+
+  app.get("/api/admin/agents/status", requireMaster, async (c) => {
+    const runs = c.env.sql.query<any>(
+      "SELECT id, payload_json, source, created_at FROM event_log WHERE event_type = 'agent.run_completed' ORDER BY id DESC LIMIT 30"
+    );
+    const metaRows = c.env.sql.query<any>("SELECT key, value FROM meta WHERE key LIKE 'agent:%'");
+    return c.json({ runs, meta: metaRows });
+  });
+
   // ─── PROMPT 7: Realtime (SSE) ───────────────────────────────────────────────
   // Micro-burst SSE: jedno połączenie = jeden query + flush + close. EventSource
   // sam się reconnectuje po `retry: 3000` ms z Last-Event-ID. Bez setTimeout/setInterval
   // (banned w runtime, patrz references/handler-runtime.md).
-  // H2: requireMaster — mapSnapshot i queryEvents są nieskopowane per investor_org_id,
-  // więc investor widziałby cudze kredyty i spory. Scoping inwestorów = PROMPT 8.
-  app.get("/api/admin/events/stream", requireMaster, async (c) => {
+  // PROMPT 8: requireMasterOrInvestor + scoping per investor_org_id. Master widzi
+  // wszystko; inwestor wyłącznie eventy własnych punktów (point_id IN własne locations).
+  // Eventy globalne bez point_id (cykle) nie są streamowane do inwestora — przychód
+  // inwestor czyta z REST /api/investor/dashboard, nie ze streamu.
+  app.get("/api/admin/events/stream", requireMasterOrInvestor, async (c) => {
     try {
+      const me = c.get(APP_USER_KEY);
+      const orgId = me.role === "investor" ? investorOrgIdOf(c.env, me.investorId) : null;
+      if (me.role === "investor" && !orgId) return c.json({ error: "no_org_mapping" }, 403);
       const cats = parseCats(c.req.query("type"));
       const replayRaw = parseInt(c.req.query("replay") ?? "0", 10);
       const replay = Number.isFinite(replayRaw) && replayRaw > 0 ? Math.min(replayRaw, 500) : 0;
@@ -548,7 +582,7 @@ export function createApp() {
         sinceId: c.req.query("sinceId"),
         since: c.req.query("since"),
       });
-      return buildEventStream(c.env, { cursor, cats, replay });
+      return buildEventStream(c.env, { cursor, cats, replay, orgId });
     } catch (e: any) {
       // L7: ensureSeeded bypass znaczy że event_log może nie istnieć na świeżym DO.
       console.error("[events/stream]", e?.message ?? String(e));
@@ -557,8 +591,11 @@ export function createApp() {
   });
 
   // Snapshot mapy — jeden GET zwraca 2000+ pkt + cursor, potem tylko delty przez SSE.
-  app.get("/api/admin/map/snapshot", requireMaster, async (c) => {
-    return c.json(mapSnapshot(c.env));
+  app.get("/api/admin/map/snapshot", requireMasterOrInvestor, async (c) => {
+    const me = c.get(APP_USER_KEY);
+    const orgId = me.role === "investor" ? investorOrgIdOf(c.env, me.investorId) : null;
+    if (me.role === "investor" && !orgId) return c.json({ error: "no_org_mapping" }, 403);
+    return c.json(mapSnapshot(c.env, orgId));
   });
 
   // DEV: seed syntetycznych lokalizacji rozsianych po 16 miastach (load test 2000+ markerów).
@@ -1119,6 +1156,12 @@ export function createApp() {
       "INSERT INTO points (id, address, district, investor_id, lat, lng, fill_level, status, monthly_packages, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [id, address, district, me.investorId, lat ?? null, lng ?? null, 0, "online", 0, Date.now()]
     );
+    // PROMPT 8: dual-write do kanonicznej tabeli locations (mapa live + scoping czytają stąd).
+    const newOrgId = investorOrgIdOf(c.env, me.investorId);
+    c.env.sql.exec(
+      "INSERT OR IGNORE INTO locations (id, address, district, lat, lng, investor_org_id, fill_level, status, monthly_packages, created_at, updated_at, version) VALUES (?, ?, ?, ?, ?, ?, 0, 'online', 0, ?, ?, 1)",
+      [id, address, district, lat ?? null, lng ?? null, newOrgId, Date.now(), Date.now()]
+    );
     return c.json({ ok: true, id });
   });
 
@@ -1182,6 +1225,50 @@ export function createApp() {
       [me.investorId]
     );
     return c.json({ invoices: rows });
+  });
+
+  // PROMPT 8: pulpit inwestora — przychód z ledgera (party_org_id), butelki per punkt,
+  // urządzenia + telemetria. Model zarządcy wspólnot: „konto lokalu” per inwestor.
+  app.get("/api/investor/dashboard", requireInvestor, async (c) => {
+    const me = c.get(APP_USER_KEY);
+    const orgId = investorOrgIdOf(c.env, me.investorId);
+    if (!orgId) return c.json({ error: "no_org_mapping" }, 403);
+    const locs = c.env.sql.query<any>(
+      "SELECT id, address, district, lat, lng, fill_level, status, last_collection_at, monthly_packages FROM locations WHERE deleted_at IS NULL AND investor_org_id = ? ORDER BY fill_level DESC",
+      [orgId]
+    );
+    const revenueByType = c.env.sql.query<any>(
+      "SELECT entry_type, direction, COUNT(*) AS entries, SUM(amount_net) AS net_grosze FROM ledger_entries WHERE party_org_id = ? GROUP BY entry_type, direction ORDER BY net_grosze DESC",
+      [orgId]
+    );
+    const revenueNetGrosze = revenueByType.reduce(
+      (s: number, r: any) => s + (r.direction === "credit" ? Number(r.net_grosze) : -Number(r.net_grosze)),
+      0
+    );
+    const bottlesPerPoint = c.env.sql.query<any>(
+      "SELECT c2.point_id, COALESCE(SUM(c2.packages),0) AS packages, COUNT(*) AS pickups, MAX(c2.collected_at) AS last_at " +
+        "FROM collections c2 JOIN locations l ON l.id = c2.point_id " +
+        "WHERE l.investor_org_id = ? AND c2.status = 'completed' GROUP BY c2.point_id ORDER BY packages DESC",
+      [orgId]
+    );
+    const devices = c.env.sql.query<any>(
+      "SELECT d.id, d.serial, d.manufacturer, d.model, d.status, d.location_id, MAX(h.ts) AS last_heartbeat " +
+        "FROM devices d JOIN locations l ON l.id = d.location_id LEFT JOIN device_heartbeats h ON h.device_id = d.id " +
+        "WHERE l.investor_org_id = ? AND d.deleted_at IS NULL GROUP BY d.id ORDER BY d.id",
+      [orgId]
+    );
+    const totalBottles = bottlesPerPoint.reduce((s: number, b: any) => s + Number(b.packages ?? 0), 0);
+    const avgFill = locs.length
+      ? Math.round(locs.reduce((s: number, l: any) => s + Number(l.fill_level ?? 0), 0) / locs.length)
+      : 0;
+    return c.json({
+      orgId,
+      totals: { locations: locs.length, bottles: totalBottles, revenueNetGrosze, avgFill, devices: devices.length },
+      locations: locs,
+      revenueByType,
+      bottlesPerPoint,
+      devices,
+    });
   });
 
   app.get("/api/driver/overview", requireDriver, async (c) => {
@@ -1429,5 +1516,11 @@ export default {
   fetch: async (req: Request, env: any, ctx: any) => {
     const app = createApp();
     return app.fetch(req, env, ctx);
-  }
+  },
+  // PROMPT 8: cron co godzinę (app.md triggers.schedule) — agenci wewnętrzni.
+  // Hook MUSI nazywać się onSchedule (nie `scheduled`) — kontrakt Sauna Apps.
+  async onSchedule(env: any, _ctx: any) {
+    await ensureSeeded(env);
+    runAllAgents(env);
+  },
 } satisfies AppHandler;

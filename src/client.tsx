@@ -357,6 +357,7 @@ function MasterApp({ user, onLogout }: { user: User; onLogout: () => void }) {
     { id: "import", label: "Import CSV", icon: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" },
     { id: "catalog", label: "Katalog EAN", icon: "M5 5v14M9 5v14M11 5v14M14 5v14M18 5v14" },
     { id: "events", label: "Event log", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+    { id: "agents", label: "Agenci", icon: "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
   ];
   const reload = useCallback(async () => {
     try {
@@ -376,6 +377,7 @@ function MasterApp({ user, onLogout }: { user: User; onLogout: () => void }) {
       {view === "import" && <MasterCsvImport cycles={cycles} onReload={reload} />}
       {view === "catalog" && <MasterCatalog />}
       {view === "events" && <MasterEvents />}
+      {view === "agents" && <MasterAgents />}
     </NavShell>
   );
 }
@@ -1625,6 +1627,75 @@ function MasterMapaLive({ user }: { user: User }) {
   );
 }
 
+// ─── PROMPT 8: Agenci wewnętrzni (health check / data quality / dispute deadlines) ───
+function MasterAgents() {
+  const [status, setStatus] = useState<any>(null);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    try { setError(null); setStatus(await api("/api/admin/agents/status")); }
+    catch (e: any) { setError(e.message); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  const runNow = async () => {
+    setRunning(true);
+    try { await api("/api/admin/agents/run", { method: "POST" }); await load(); }
+    catch (e: any) { setError(e.message); }
+    setRunning(false);
+  };
+  const AGENT_LABELS: Record<string, string> = {
+    health_check: "Health check (punkty + urządzenia)",
+    data_quality: "Jakość danych (hash chain, sieroty)",
+    dispute_deadline: "Terminy sporów (default action)",
+  };
+  const metaMap: Record<string, string> = {};
+  for (const m of status?.meta ?? []) metaMap[m.key] = m.value;
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <div className="text-sm text-gray-600">
+          Deterministyczna automatyzacja — cron co godzinę + trigger ręczny. Każdy run audytowalny w event logu (ścieżka ISO: kto / co / kiedy).
+        </div>
+        <button onClick={runNow} disabled={running} className="text-sm px-4 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-700 disabled:opacity-50">
+          {running ? "Uruchamiam…" : "Uruchom agentów teraz"}
+        </button>
+      </div>
+      {error && <ErrorBox message={error} />}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        {Object.entries(AGENT_LABELS).map(([k, label]) => (
+          <div key={k} className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="font-semibold text-sm mb-1">{label}</div>
+            <div className="text-xs text-gray-500">Ostatni run: {metaMap[`agent:${k}:last_run`] ? new Date(Number(metaMap[`agent:${k}:last_run`])).toLocaleString("pl-PL") : "—"}</div>
+            <div className="text-xs text-gray-500">Znaleziska: {metaMap[`agent:${k}:last_findings`] ?? "—"}</div>
+          </div>
+        ))}
+      </div>
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <h3 className="font-semibold text-sm mb-3">Ostatnie runy (event log)</h3>
+        <div className="space-y-2 text-xs">
+          {(status?.runs ?? []).map((r: any) => {
+            let p: any = {};
+            try { p = JSON.parse(r.payload_json ?? "{}"); } catch {}
+            return (
+              <div key={r.id} className="border-b border-gray-100 pb-2">
+                <span className="font-medium">{r.source}</span> · {new Date(r.created_at).toLocaleString("pl-PL")} · znaleziska: <b>{p.findingCount ?? 0}</b>, akcje: <b>{p.actions ?? 0}</b>
+                {p.findings?.length > 0 && (
+                  <div className="text-gray-500 mt-1">
+                    {p.findings.slice(0, 5).map((f: any, i: number) => (
+                      <span key={i} className="inline-block mr-2">{f.kind}{f.ref ? `(${f.ref})` : ""}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {(status?.runs ?? []).length === 0 && <div className="text-gray-500">Jeszcze żadnych runów — kliknij „Uruchom agentów teraz”.</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 function App() {
   const [view, setView] = useState<"landing" | "login" | "app">("landing");
@@ -1652,21 +1723,202 @@ function App() {
   return <LandingPage onLoginClick={() => setView("login")} inviteToken={inviteToken} />;
 }
 
+// ─── PROMPT 8: pełny panel inwestora (model zarządcy: wspólnota = inwestor) ──────
 function InvestorApp({ user, onLogout }: { user: User; onLogout: () => void }) {
+  const [view, setView] = useState("pulpit");
+  const [dash, setDash] = useState<any>(null);
   const [overview, setOverview] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { api("/api/investor/overview").then(setOverview).catch((err) => setError(err.message)); }, []);
+  const nav = [
+    { id: "pulpit", label: "Pulpit", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
+    { id: "mapa", label: "Mapa live", icon: "M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" },
+    { id: "punkty", label: "Moje punkty", icon: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" },
+    { id: "odbiory", label: "Odbiory", icon: "M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" },
+    { id: "rozliczenia", label: "Rozliczenia", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" },
+    { id: "faktury", label: "Faktury", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+  ];
+  const reload = useCallback(async () => {
+    try {
+      setError(null);
+      const [d, o] = await Promise.all([api("/api/investor/dashboard"), api("/api/investor/overview")]);
+      setDash(d); setOverview(o);
+    } catch (e: any) { setError(e.message); }
+  }, []);
+  useEffect(() => { reload(); }, [reload]);
+  return (
+    <NavShell title={nav.find((n) => n.id === view)?.label ?? ""} nav={nav} activeView={view} setView={setView} user={user} onLogout={onLogout}>
+      {error && <ErrorBox message={error} />}
+      {view === "pulpit" && <InvestorPulpit dash={dash} />}
+      {view === "mapa" && <MasterMapaLive user={user} />}
+      {view === "punkty" && <InvestorPunkty dash={dash} />}
+      {view === "odbiory" && <InvestorOdbiory />}
+      {view === "rozliczenia" && <InvestorRozliczenia overview={overview} />}
+      {view === "faktury" && <InvestorFaktury />}
+    </NavShell>
+  );
+}
+
+function InvestorPulpit({ dash }: { dash: any }) {
+  if (!dash) return <Loading />;
+  const t = dash.totals;
+  return (
+    <div>
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <KpiCard label="Przychód netto (ledger)" value={fmt(t.revenueNetGrosze)} sub={`${dash.revenueByType.length} typów pozycji`} />
+        <KpiCard label="Butelki zebrane" value={fmtInt(t.bottles)} sub={`${t.locations} punktów`} />
+        <KpiCard label="Śr. zapełnienie" value={`${t.avgFill}%`} />
+        <KpiCard label="Urządzenia" value={t.devices} sub="w moich punktach" />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <h3 className="font-semibold text-sm mb-3">Butelki per punkt (top 10)</h3>
+          <table className="w-full text-xs">
+            <thead><tr className="text-left text-gray-500"><th>Punkt</th><th className="text-right">Butelki</th><th className="text-right">Odbiory</th><th className="text-right">Ostatni</th></tr></thead>
+            <tbody>
+              {dash.bottlesPerPoint.slice(0, 10).map((b: any) => (
+                <tr key={b.point_id} className="border-t border-gray-100">
+                  <td className="py-1">{b.point_id}</td>
+                  <td className="text-right">{fmtInt(b.packages)}</td>
+                  <td className="text-right">{b.pickups}</td>
+                  <td className="text-right">{b.last_at ? new Date(b.last_at).toLocaleDateString("pl-PL") : "—"}</td>
+                </tr>
+              ))}
+              {dash.bottlesPerPoint.length === 0 && <tr><td colSpan={4} className="py-2 text-gray-500">Brak odbiorów</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <h3 className="font-semibold text-sm mb-3">Przychód wg typu pozycji</h3>
+          <table className="w-full text-xs">
+            <thead><tr className="text-left text-gray-500"><th>Typ</th><th>Kierunek</th><th className="text-right">Netto</th></tr></thead>
+            <tbody>
+              {dash.revenueByType.map((r: any, i: number) => (
+                <tr key={i} className="border-t border-gray-100">
+                  <td className="py-1">{r.entry_type}</td>
+                  <td>{r.direction === "credit" ? "uznanie" : "obciążenie"}</td>
+                  <td className="text-right">{fmt(r.net_grosze)}</td>
+                </tr>
+              ))}
+              {dash.revenueByType.length === 0 && <tr><td colSpan={3} className="py-2 text-gray-500">Brak pozycji w ledgerze — przychód pojawi się po zamknięciu cyklu</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className="bg-white border border-gray-200 rounded-lg p-4 mt-4">
+        <h3 className="font-semibold text-sm mb-3">Urządzenia i telemetria</h3>
+        <table className="w-full text-xs">
+          <thead><tr className="text-left text-gray-500"><th>Serial</th><th>Model</th><th>Punkt</th><th>Status</th><th className="text-right">Ostatni heartbeat</th></tr></thead>
+          <tbody>
+            {dash.devices.map((d: any) => (
+              <tr key={d.id} className="border-t border-gray-100">
+                <td className="py-1">{d.serial}</td>
+                <td>{d.manufacturer} {d.model}</td>
+                <td>{d.location_id ?? "—"}</td>
+                <td>{d.status === "active" ? "aktywne" : d.status}</td>
+                <td className="text-right">{d.last_heartbeat ? new Date(d.last_heartbeat).toLocaleString("pl-PL") : "—"}</td>
+              </tr>
+            ))}
+            {dash.devices.length === 0 && <tr><td colSpan={5} className="py-2 text-gray-500">Brak urządzeń przypisanych do Twoich punktów</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function InvestorPunkty({ dash }: { dash: any }) {
+  if (!dash) return <Loading />;
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <table className="w-full text-sm">
+        <thead><tr className="text-left text-gray-500 text-xs"><th>ID</th><th>Adres</th><th>Dzielnica</th><th className="text-right">Zapełnienie</th><th>Status</th><th className="text-right">Ostatni odbiór</th></tr></thead>
+        <tbody>
+          {dash.locations.map((l: any) => (
+            <tr key={l.id} className="border-t border-gray-100">
+              <td className="py-1.5 font-medium">{l.id}</td>
+              <td>{l.address}</td>
+              <td>{l.district ?? "—"}</td>
+              <td className="text-right">{l.fill_level}%</td>
+              <td>{l.status}</td>
+              <td className="text-right">{l.last_collection_at ? new Date(l.last_collection_at).toLocaleDateString("pl-PL") : "—"}</td>
+            </tr>
+          ))}
+          {dash.locations.length === 0 && <tr><td colSpan={6} className="py-2 text-gray-500">Brak punktów</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function InvestorOdbiory() {
+  const [rows, setRows] = useState<any[] | null>(null);
+  useEffect(() => { api("/api/investor/collections").then((d) => setRows(d.collections)).catch(() => setRows([])); }, []);
+  if (!rows) return <Loading />;
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <table className="w-full text-sm">
+        <thead><tr className="text-left text-gray-500 text-xs"><th>Punkt</th><th className="text-right">Opakowania</th><th>Kierowca</th><th className="text-right">Data</th></tr></thead>
+        <tbody>
+          {rows.map((r: any) => (
+            <tr key={r.id} className="border-t border-gray-100">
+              <td className="py-1.5">{r.point_id}</td>
+              <td className="text-right">{fmtInt(r.packages ?? 0)}</td>
+              <td>{r.driver_name ?? "—"}</td>
+              <td className="text-right">{r.collected_at ? new Date(r.collected_at).toLocaleString("pl-PL") : "—"}</td>
+            </tr>
+          ))}
+          {rows.length === 0 && <tr><td colSpan={4} className="py-2 text-gray-500">Brak odbiorów</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function InvestorRozliczenia({ overview }: { overview: any }) {
   if (!overview) return <Loading />;
   return (
-    <NavShell title="Dashboard" nav={[{ id: "dashboard", label: "Dashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" }]} activeView="dashboard" setView={() => {}} user={user} onLogout={onLogout}>
-      {error && <ErrorBox message={error} />}
-      <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="Moje punkty" value={overview.points.length} />
-        <KpiCard label="Odbiory (mc)" value={fmtInt(overview.collectionsCount)} />
-        <KpiCard label="Mój abonament" value={fmt(overview.platformFeeGrosze)} />
-        <KpiCard label="Settlement fee" value="0,5%" />
-      </div>
-    </NavShell>
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <table className="w-full text-sm">
+        <thead><tr className="text-left text-gray-500 text-xs"><th>Pozycja</th><th className="text-right">Ilość</th><th>Stawka</th><th className="text-right">Netto</th><th className="text-right">Brutto</th></tr></thead>
+        <tbody>
+          {overview.settlements.map((s: any, i: number) => (
+            <tr key={i} className="border-t border-gray-100">
+              <td className="py-1.5">{s.party}</td>
+              <td className="text-right">{s.count}</td>
+              <td>{s.rate_label}</td>
+              <td className="text-right">{fmt(s.net_grosze)}</td>
+              <td className="text-right">{fmt(s.gross_grosze)}</td>
+            </tr>
+          ))}
+          {overview.settlements.length === 0 && <tr><td colSpan={5} className="py-2 text-gray-500">Brak rozliczeń</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function InvestorFaktury() {
+  const [rows, setRows] = useState<any[] | null>(null);
+  useEffect(() => { api("/api/investor/invoices").then((d) => setRows(d.invoices)).catch(() => setRows([])); }, []);
+  if (!rows) return <Loading />;
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <table className="w-full text-sm">
+        <thead><tr className="text-left text-gray-500 text-xs"><th>KSeF</th><th>Tytuł</th><th className="text-right">Kwota</th><th>Data</th><th>Status</th></tr></thead>
+        <tbody>
+          {rows.map((f: any) => (
+            <tr key={f.id} className="border-t border-gray-100">
+              <td className="py-1.5">{f.ksef_number}</td>
+              <td>{f.title}</td>
+              <td className="text-right">{fmt(f.amount_grosze)}</td>
+              <td>{f.issue_date}</td>
+              <td>{f.status}</td>
+            </tr>
+          ))}
+          {rows.length === 0 && <tr><td colSpan={5} className="py-2 text-gray-500">Brak faktur</td></tr>}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

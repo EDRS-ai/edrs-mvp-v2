@@ -127,28 +127,39 @@ export function resolveCursor(
 
 // Tailing query: WHERE id > ? AND event_type IN (...) ORDER BY id ASC LIMIT 500.
 // PK range scan, O(result), niezależne od rozmiaru tabeli (indeks event_log_pk).
-export function queryEvents(env: any, cursor: number, cats: Category[], limit: number) {
+// PROMPT 8: opcjonalny orgId — scoping per investor_org_id. Filtr przez point_id IN
+// (SELECT id FROM locations WHERE investor_org_id = ?) naturalnie wycina eventy bez
+// point_id (cykle globalne) — inwestor widzi TYLKO zdarzenia własnych punktów.
+export function queryEvents(env: any, cursor: number, cats: Category[], limit: number, orgId?: number | null) {
   const types = KNOWN_TYPES.filter((t) => cats.includes(CATEGORY[t]));
   if (types.length === 0) return [] as any[];
   const ph = types.map(() => "?").join(",");
+  const scope = orgId ? " AND point_id IN (SELECT id FROM locations WHERE investor_org_id = ?)" : "";
+  const params: any[] = [cursor, ...types];
+  if (orgId) params.push(orgId);
+  params.push(Math.min(Math.max(limit, 1), 500));
   return env.sql.query<any>(
     `SELECT id, cycle_id, point_id, event_type, payload_json, created_at
-       FROM event_log WHERE id > ? AND event_type IN (${ph})
+       FROM event_log WHERE id > ? AND event_type IN (${ph})${scope}
        ORDER BY id ASC LIMIT ?`,
-    [cursor, ...types, Math.min(Math.max(limit, 1), 500)]
+    params
   );
 }
 
 // Replay ostatnich N zdarzeń (DESC + reverse) — tryb dev / demo.
-export function queryReplay(env: any, cats: Category[], n: number) {
+export function queryReplay(env: any, cats: Category[], n: number, orgId?: number | null) {
   const types = KNOWN_TYPES.filter((t) => cats.includes(CATEGORY[t]));
   if (types.length === 0) return [] as any[];
   const ph = types.map(() => "?").join(",");
+  const scope = orgId ? " AND point_id IN (SELECT id FROM locations WHERE investor_org_id = ?)" : "";
+  const params: any[] = [...types];
+  if (orgId) params.push(orgId);
+  params.push(Math.min(Math.max(n, 1), 500));
   const rows = env.sql.query<any>(
     `SELECT id, cycle_id, point_id, event_type, payload_json, created_at
-       FROM event_log WHERE event_type IN (${ph})
+       FROM event_log WHERE event_type IN (${ph})${scope}
        ORDER BY id DESC LIMIT ?`,
-    [...types, Math.min(Math.max(n, 1), 500)]
+    params
   );
   return rows.reverse();
 }
@@ -189,7 +200,7 @@ const MAX_TICKS = 20;
 
 export function buildEventStream(
   env: any,
-  opts: { cursor: number; cats: Category[]; replay: number }
+  opts: { cursor: number; cats: Category[]; replay: number; orgId?: number | null }
 ): Response {
   const enc = new TextEncoder();
   // H4: `closed` hoisted poza start() żeby cancel() (client disconnect) mógł
@@ -218,7 +229,7 @@ export function buildEventStream(
 
         // Replay burst (dev mode).
         if (opts.replay > 0) {
-          const replayRows = queryReplay(env, opts.cats, opts.replay);
+          const replayRows = queryReplay(env, opts.cats, opts.replay, opts.orgId);
           for (const r of replayRows) frame(r);
           write(`event: replay_done\ndata: {"count":${replayRows.length}}\n\n`);
         }
@@ -231,7 +242,7 @@ export function buildEventStream(
         const canWait =
           typeof (globalThis as any).scheduler?.wait === "function";
         do {
-          const rows = queryEvents(env, cursor, opts.cats, 500);
+          const rows = queryEvents(env, cursor, opts.cats, 500, opts.orgId);
           for (const r of rows) frame(r);
           write(`: hb ${Date.now()} cursor=${cursor}\n\n`);
           if (!canWait || closed) break;
@@ -263,10 +274,12 @@ export function buildEventStream(
 // Snapshot mapy — kompaktowe tablice (2000 pkt ≈ 120 KB zamiast ~600 KB obiektów).
 // Zwracamy też aktualny event_log.id jako cursor, żeby klient po pierwszej
 // dacie SSE zaczął od tego samego momentu bez luki.
-export function mapSnapshot(env: any) {
+export function mapSnapshot(env: any, orgId?: number | null) {
+  const scope = orgId ? " AND investor_org_id = ?" : "";
   const rows = env.sql.query<any>(
     "SELECT id, address, district, lat, lng, fill_level, status, last_collection_at " +
-      "FROM locations WHERE deleted_at IS NULL AND lat IS NOT NULL AND lng IS NOT NULL ORDER BY id"
+      `FROM locations WHERE deleted_at IS NULL AND lat IS NOT NULL AND lng IS NOT NULL${scope} ORDER BY id`,
+    orgId ? [orgId] : []
   );
   const cursor = Number(
     env.sql.query<{ id: number | null }>("SELECT MAX(id) AS id FROM event_log")[0]?.id ?? 0

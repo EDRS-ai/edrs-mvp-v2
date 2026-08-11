@@ -4,6 +4,11 @@ description: edrs.io MVP v2 — clean rebuild per Sprint 2 spec. Auth via httpOn
 manifest_version: 1
 enabled: true
 visibility: public
+triggers:
+  schedule:
+    cron: "0 * * * *"
+    timezone: UTC
+    enabled: true
 ---
 
 # edrs.io MVP v2 — Sprint 2 (PROMPT 0)
@@ -131,3 +136,37 @@ POST /api/admin/dev/simulate (master)
 - ✅ Full deploy (server + frontend MasterMapaLive + wszystkie fixy z advisor review C1–C3/H1–H4/M1–M7/L2–L8) live pod `https://edrs-mvp-v2-m75lwujx.sauna.new/` (code `c15944061382f65f09f7cc2e5257ee373`)
 - ✅ E2E browser-verified (2026-08-11): login master, Mapa live "Na żywo", seed 4×500 → 2024 punkty, Symuluj ruch → toasty kredytów + pulse alerty (2→3) + Zmiany 48→88, zero błędów JS w konsoli
 - Login demo: `maciej@net4zero.pl` / `edrs2026`
+
+## PROMPT 8 — Panel inwestora, scoping, unifikacja, agenci wewnętrzni
+
+### Unifikacja points/locations
+- Migracja `0001_unify_points_locations.sql`: legacy `points` (NET-xxx) skopiowane do kanonicznej `locations` z zachowaniem id — `collections.point_id` / `event_log.point_id` pasują bez przepisywania. `investor_org_id` mapowany po IDENTYCZNEJ nazwie `investors.name = organizations.name` (celowa konwencja seeda PROMPT 1). Koordynaty: centroidy dzielnic Warszawy + deterministyczny jitter (points nie miały lat/lng).
+- Driver-complete path (`/api/driver/jobs/:pointId/complete`) trafia teraz w istniejący wiersz `locations` — `emitLocationUpdate` emituje na mapę zamiast w pustkę (fix martwej ścieżki z PROMPT 7).
+- `POST /api/investor/points` robi dual-write (points + locations). Legacy `points` zostaje read-path dla starych endpointów inwestora; pełne wycięcie = osobny PROMPT.
+
+### Scoping per investor_org_id (naprawa H2)
+- `GET /api/admin/events/stream` i `GET /api/admin/map/snapshot` → `requireMasterOrInvestor`. Master widzi wszystko; inwestor dostaje eventy TYLKO własnych punktów (`point_id IN (SELECT id FROM locations WHERE investor_org_id = ?)`). Eventy globalne bez point_id (cykle) nie są streamowane do inwestora — przychód czyta z REST.
+- Mapowanie legacy `users.investor_id` → `organizations.id`: helper `investorOrgIdOf` (join po nazwie). Brak mapowania → 403 `no_org_mapping`.
+
+### Panel inwestora (model zarządcy wspólnot: wspólnota = inwestor, mieszkanie = urządzenie)
+- `GET /api/investor/dashboard`: przychód netto z ledgera (`party_org_id`), butelki per punkt (collections × locations), urządzenia + ostatni heartbeat, śr. zapełnienie.
+- UI: Pulpit / Mapa live (ten sam komponent co master, scoped server-side, bez narzędzi demo) / Moje punkty / Odbiory / Rozliczenia / Faktury.
+- Login demo inwestora: `inwestor.a@net4zero.pl` / `edrs2026` (Wspólnota Wilanów, org 2).
+
+### Agenci wewnętrzni (cron `0 * * * *` UTC → onSchedule, zero LLM)
+- `health_check`: fill ≥ 95% bez odbioru > 48 h → status `alert` + event; odzyskane (fill < 70) → `online`; urządzenia bez heartbeat > 24 h → `offline`.
+- `data_quality`: sieroty referencyjne (collections/event_log bez lokalizacji) + weryfikacja hash chain ledgera (prev_hash ↔ entry_hash per cykl) + sanity netto+VAT=brutto.
+- `dispute_deadline`: spory po `due_at` bez reakcji → automatyczne zastrzeżenie (default action, wzorzec Square) + event.
+- Idempotencja: `idempotency_key = agent:{name}:{bucket-godzinowy}` — retry crona w tej samej godzinie = no-op. Ręczny trigger: `POST /api/admin/agents/run` (master, panel „Agenci”).
+- Każdy run audytowalny: event `agent.run_completed` (payload: findings + actions), `source = agent:{name}`, stan w `meta`.
+
+### Zgodność ISO-ready (fundament pod ISO 27001 / 9001)
+- **Integralność zapisów**: ledger append-only z łańcuchem SHA-256 (PROMPT 5) + cykliczna weryfikacja łańcucha przez agenta data_quality (A.8.15/A.8.16: logging &amp; monitoring).
+- **Rozliczalność**: event_log z actor_id/source/idempotency_key — kto, co, kiedy, skąd; wpisy agentów oznaczone `agent:*`.
+- **Kontrola dostępu**: RBAC (master/investor/driver) + scoping tenantów w warstwie zapytań; cookie httpOnly+Secure+SameSite=Lax, 12 h idle.
+- **Do zrobienia przed formalnym audytem** (backlog, nie kod): polityka retencji event_log/heartbeats, kopie zapasowe/eksport, rejestr przetwarzania (RODO art. 30), formalne procedury incydentów.
+
+### Znane ograniczenia po PROMPT 8
+- Inwestor nie widzi eventu kategorii `cycle` na streamie (kredyty mają payload bez point_id) — przychód w REST; PROMPT 9 doda `party_org_id` do payloadów i scoping kategorii cycle.
+- Legacy `points` + `investors` nadal istnieją (read-path starych endpointów) — pełna konsolidacja na organizations/locations = PROMPT 9.
+- Naliczenia kosztowe (raty/serwis/prąd), saldo i statement inwestora = PROMPT 9; bramka płatności (PolCard/Fiserv, org 8 w seedzie) = PROMPT 10.
