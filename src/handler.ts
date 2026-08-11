@@ -23,6 +23,7 @@ import { runAllAgents } from "./lib/agents";
 import { investorBalance, investorStatement, paymentsFor, createPayment, confirmPayment, generateMonthlyCharges } from "./lib/finance";
 import { saveDocument, readDocument, listDocuments, statementPeriods, renderStatementHtml, acceptStatement, DOC_CATEGORIES, MAX_DOC_BYTES } from "./lib/documents";
 import { renderRegulamin, renderPolitykaPrywatnosci } from "./lib/legal";
+import { getSettlementManifest, bankDataRoomPackage, recordDriverJobEvent } from "./lib/mvp";
 
 type Bindings = { sql: any; websocket: any; ctx: AppCtx };
 
@@ -44,8 +45,8 @@ function paginatedResponse(items: any[], total: number, limit: number, offset: n
 
 // NOTE: PROMPT 0 scope = auth fix only. These pricing constants will move to
 // rate_cards in PROMPT 1. Do not touch in this commit.
-const PLATFORM_FEE_PER_POINT_GROSZE = 14900;
-const SETTLEMENT_FEE_PER_PACKAGE_GROSZE = 0.25;
+const PLATFORM_FEE_PER_POINT_GROSZE = 50000;
+const DRIVER_MODULE_PER_VEHICLE_GROSZE = 22000;
 const RECONCILIATION_THRESHOLD_PCT = 2.0;
 
 export function createApp() {
@@ -187,8 +188,8 @@ export function createApp() {
     const packagesMonth = Number(c.env.sql.query<{ value: string }>("SELECT value FROM meta WHERE key='packagesMonth'")[0].value);
     const collectionsMonth = Number(c.env.sql.query<{ value: string }>("SELECT value FROM meta WHERE key='collectionsMonth'")[0].value);
     const platformFee = pointCount * PLATFORM_FEE_PER_POINT_GROSZE;
-    const settlementFee = Math.round(packagesMonth * SETTLEMENT_FEE_PER_PACKAGE_GROSZE);
-    const monthlyRecurring = platformFee + settlementFee;
+    const driverModuleFee = driverCount * DRIVER_MODULE_PER_VEHICLE_GROSZE;
+    const monthlyRecurring = platformFee + driverModuleFee;
     return c.json({
       investorsCount: investorCount,
       driversCount: driverCount,
@@ -196,7 +197,7 @@ export function createApp() {
       packagesMonth,
       collectionsMonth,
       platformFeeGrosze: platformFee,
-      settlementFeeGrosze: settlementFee,
+      driverModuleFeeGrosze: driverModuleFee,
       monthlyRecurringGrosze: monthlyRecurring,
       arrEstimateGrosze: monthlyRecurring * 12
     });
@@ -1274,6 +1275,46 @@ export function createApp() {
     });
   });
 
+  // ── PROMPT 18: settlement manifest, bank evidence pack, driver outbox ─────
+  app.get("/api/admin/cycles/:id/manifest", requireMaster, async (c) => {
+    const result = getSettlementManifest(c.env, Number(c.req.param("id")));
+    if ((result as any).error) return c.json(result, 404);
+    return c.json(result);
+  });
+
+  app.get("/api/admin/bank-data-room", requireMaster, async (c) => {
+    return c.json(await bankDataRoomPackage(c.env));
+  });
+
+  app.get("/api/admin/driver-events", requireMaster, async (c) => {
+    const rows = c.env.sql.query<any>("SELECT e.*, d.name AS driver_name FROM driver_job_events e LEFT JOIN drivers d ON d.id=e.driver_id ORDER BY e.occurred_at DESC LIMIT 200");
+    return c.json({ events: rows });
+  });
+
+  app.post("/api/driver/jobs/sync", requireDriver, async (c) => {
+    const me = c.get(APP_USER_KEY);
+    const body = await c.req.json<{ events: any[] }>();
+    if (!Array.isArray(body.events) || body.events.length > 100) return c.json({ error: "invalid_batch" }, 400);
+    const results: any[] = [];
+    for (const ev of body.events) {
+      const point = c.env.sql.query<{ id: string }>("SELECT id FROM points WHERE id=?", [ev.pointId]);
+      if (!point.length) { results.push({ clientEventId: ev.clientEventId, error: "point_not_found" }); continue; }
+      const r: any = recordDriverJobEvent(c.env, Number(me.driverId), ev);
+      if (!r.error && !r.duplicate) {
+        const now = Date.now();
+        if (ev.action === "ACCEPTED") c.env.sql.exec("INSERT INTO collections (point_id,driver_id,status,accepted_at,created_at) VALUES (?,?, 'accepted',?,?)", [ev.pointId,me.driverId,ev.occurredAt||now,now]);
+        if (ev.action === "COMPLETED") {
+          c.env.sql.exec("INSERT INTO collections (point_id,driver_id,status,packages,weight_kg,accepted_at,collected_at,created_at) VALUES (?,?, 'completed',?,?,?,?,?)", [ev.pointId,me.driverId,Number(ev.packages||0),ev.weightKg??null,ev.occurredAt||now,ev.occurredAt||now,now]);
+          c.env.sql.exec("UPDATE points SET fill_level=5,last_collection_at=? WHERE id=?", [ev.occurredAt||now,ev.pointId]);
+          c.env.sql.exec("UPDATE locations SET fill_level=5,last_collection_at=?,updated_at=? WHERE id=?", [ev.occurredAt||now,now,ev.pointId]);
+          emitLocationUpdate(c.env, ev.pointId, { reason: "collection", packages: Number(ev.packages||0) });
+        }
+      }
+      results.push({ clientEventId: ev.clientEventId, ...r });
+    }
+    return c.json({ ok: results.every(r => !r.error), results });
+  });
+
   app.get("/api/driver/overview", requireDriver, async (c) => {
     const me = c.get(APP_USER_KEY);
     const allPoints = c.env.sql.query<any>(
@@ -1688,7 +1729,7 @@ export function createApp() {
   // ── PROMPT 16: dane pokazowe (dokumenty, wiadomosci, heartbeaty) — idempotentne, v2 z polska ortografia ──
   const SEED_DOCS: [number | null, string, string, string, string][] = [
     [null, "Cennik usług edrs.io 2026", "inne", "cennik-2026.txt",
-      "CENNIK USŁUG edrs.io — obowiązuje od 01.01.2026\n\n1. Abonament platformy: 149 zł netto / punkt / miesiąc.\n   Obejmuje: ewidencję punktów i urządzeń, mapę live, dziennik księgowy, panel inwestora,\n   sprawozdania miesięczne, archiwum dokumentów, komunikację oraz agentów kontroli jakości danych.\n\n2. Settlement fee: 0,5% wolumenu kaucji netto — pobierane wyłącznie od faktycznie rozliczonych zwrotów.\n\n3. Bank Data Room: 0 zł — w cenie platformy.\n\n4. Wdrożenie i szkolenie zespołu: 0 zł w programie pilotażowym.\n\n5. Faktury ustrukturyzowane (KSeF): w cenie platformy, bez dodatkowych modułów.\n\nWszystkie kwoty netto, VAT 23%. Faktury wystawiane automatycznie z dziennika księgowego.\nCennik nie stanowi oferty w rozumieniu art. 66 § 1 Kodeksu cywilnego."],
+      "CENNIK USŁUG edrs.io — obowiązuje od 01.01.2026\n\n1. Abonament platformy: 500 zł netto / punkt / miesiąc.\n   Obejmuje: ewidencję punktów i urządzeń, mapę live, dziennik księgowy, panel inwestora,\n   sprawozdania miesięczne, archiwum dokumentów, komunikację oraz agentów kontroli jakości danych.\n\n2. Moduł kierowcy: 220 zł netto / pojazd / miesiąc.\n   Obejmuje zlecenia, reason codes, dowody odbioru i synchronizację zdarzeń.\n\n3. Bank Data Room: 0 zł — w cenie platformy.\n\n4. Wdrożenie i szkolenie zespołu: 0 zł w programie pilotażowym.\n\n5. Faktury ustrukturyzowane (KSeF): w cenie platformy, bez dodatkowych modułów.\n\nWszystkie kwoty netto, VAT 23%. Faktury wystawiane automatycznie z dziennika księgowego.\nCennik nie stanowi oferty w rozumieniu art. 66 § 1 Kodeksu cywilnego."],
     [null, "Wzór umowy najmu powierzchni pod recyklomat", "umowa", "wzor-umowa-najmu-rvm.txt",
       "WZÓR UMOWY NAJMU POWIERZCHNI POD URZĄDZENIE RVM\n\n§1 Przedmiot umowy\nWynajmujący oddaje w najem 2 m² powierzchni pod urządzenie do zbiórki opakowań (recyklomat)\nwraz z dostępem do przyłącza elektrycznego 230 V.\n\n§2 Czynsz\nCzynsz najmu ustalany jest zgodnie z kartoteką stawek (rate card) przypisaną do punktu\ni podlega wersjonowaniu — zmiana stawki nie wymaga aneksu, a naliczenia historyczne pozostają niezmienione.\n\n§3 Okres obowiązywania\nUmowa na 36 miesięcy, z możliwością wypowiedzenia z zachowaniem 30-dniowego okresu wypowiedzenia.\n\n§4 Obowiązki operatora\nOperator zapewnia montaż, serwis, odbiory opakowań oraz rozliczenie kaucji.\n\n§5 Rozliczenia\nRozliczenie miesięczne, netting: opłaty potrącane są z przychodów kaucyjnych punktu.\n\nDokument wzorcowy — wersja 1.0, do przeglądu prawnego."],
     [null, "Instrukcja obsługi recyklomatu R1", "inne", "instrukcja-r1.txt",

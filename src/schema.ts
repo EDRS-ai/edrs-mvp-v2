@@ -531,6 +531,67 @@ export const memberships = sqliteTable("memberships", {
   orgIdx: index("memberships_org_idx").on(t.orgId),
 }));
 
+// ─── PROMPT 18: MVP mechanisms — settlement legs, driver evidence ─────────────
+
+export const settlementGroups = sqliteTable("settlement_groups", {
+  id: text("id").primaryKey(), // cycle:{cycleId}:location:{locationId|UNSCOPED}
+  cycleId: integer("cycle_id").notNull().references(() => settlementCycles.id),
+  businessRef: text("business_ref").notNull(),
+  locationId: text("location_id"),
+  status: text("status").notNull().default("PENDING"), // PENDING|ELIGIBLE|PARTIALLY_SETTLED|HELD|SETTLED|REVERSED
+  finalizedAt: integer("finalized_at"),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+}, (t) => ({
+  cycleIdx: index("settlement_groups_cycle_idx").on(t.cycleId),
+  businessRefIdx: uniqueIndex("settlement_groups_business_ref_idx").on(t.businessRef),
+  statusIdx: index("settlement_groups_status_idx").on(t.status),
+}));
+
+export const settlementLegs = sqliteTable("settlement_legs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  groupId: text("group_id").notNull().references(() => settlementGroups.id),
+  ledgerEntryId: integer("ledger_entry_id").notNull().references(() => ledgerEntries.id),
+  partyOrgId: integer("party_org_id"),
+  legType: text("leg_type").notNull(),
+  direction: text("direction").notNull(),
+  amountNet: integer("amount_net").notNull(),
+  status: text("status").notNull().default("PENDING"),
+  idempotencyKey: text("idempotency_key").notNull(),
+  effectiveAt: integer("effective_at"),
+  recordedAt: integer("recorded_at").notNull(),
+  settledAt: integer("settled_at"),
+  createdAt: integer("created_at").notNull(),
+}, (t) => ({
+  groupIdx: index("settlement_legs_group_idx").on(t.groupId),
+  partyIdx: index("settlement_legs_party_idx").on(t.partyOrgId),
+  statusIdx: index("settlement_legs_status_idx").on(t.status),
+  ledgerEntryIdx: uniqueIndex("settlement_legs_ledger_entry_idx").on(t.ledgerEntryId),
+  idempotencyIdx: uniqueIndex("settlement_legs_idempotency_idx").on(t.idempotencyKey),
+}));
+
+export const driverJobEvents = sqliteTable("driver_job_events", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  pointId: text("point_id").notNull(),
+  driverId: integer("driver_id").notNull().references(() => drivers.id),
+  action: text("action").notNull(), // ACCEPTED|COMPLETED|FAILED|CORRECTED
+  reasonCode: text("reason_code"),
+  notes: text("notes"),
+  evidenceJson: text("evidence_json"),
+  gpsLat: real("gps_lat"),
+  gpsLng: real("gps_lng"),
+  occurredAt: integer("occurred_at").notNull(),
+  recordedAt: integer("recorded_at").notNull(),
+  idempotencyKey: text("idempotency_key").notNull(),
+  syncSource: text("sync_source").notNull().default("online"),
+  createdAt: integer("created_at").notNull(),
+}, (t) => ({
+  pointIdx: index("driver_job_events_point_idx").on(t.pointId),
+  driverIdx: index("driver_job_events_driver_idx").on(t.driverId),
+  occurredIdx: index("driver_job_events_occurred_idx").on(t.occurredAt),
+  idempotencyIdx: uniqueIndex("driver_job_events_idempotency_idx").on(t.idempotencyKey),
+}));
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 // ─── PROMPT 2 tables (NOWE) ────────────────────────────────────────────────────

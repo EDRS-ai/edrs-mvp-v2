@@ -374,14 +374,14 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             <div className="bg-white p-8 rounded-2xl border-2 border-gray-200">
               <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Abonament platformy</div>
-              <div className="mt-3 flex items-baseline gap-1"><div className="font-heading text-4xl font-bold text-brand-navy">149 zł</div><div className="text-sm text-gray-500">/ punkt / mc</div></div>
+              <div className="mt-3 flex items-baseline gap-1"><div className="font-heading text-4xl font-bold text-brand-navy">500 zł</div><div className="text-sm text-gray-500">/ punkt / mc</div></div>
               <div className="text-sm text-gray-500 mt-1">netto · stała opłata</div>
             </div>
             <div className="bg-white p-8 rounded-2xl border-4 border-brand-blue relative">
               <div className="absolute top-4 right-4 px-2 py-1 bg-brand-blue text-white text-xs rounded font-bold">skaluje się</div>
-              <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Settlement fee</div>
-              <div className="mt-3 flex items-baseline gap-1"><div className="font-heading text-4xl font-bold text-brand-navy">0,5%</div><div className="text-sm text-gray-500">wolumenu kaucji</div></div>
-              <div className="text-sm text-gray-500 mt-1">netto · tylko od sukcesu</div>
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Moduł kierowcy</div>
+              <div className="mt-3 flex items-baseline gap-1"><div className="font-heading text-4xl font-bold text-brand-navy">220 zł</div><div className="text-sm text-gray-500">/ pojazd / mc</div></div>
+              <div className="text-sm text-gray-500 mt-1">netto · zlecenia i dowody</div>
             </div>
             <div className="bg-white p-8 rounded-2xl border-2 border-brand-orange">
               <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Bank Data Room</div>
@@ -541,6 +541,7 @@ function MasterApp({ user, onLogout }: { user: User; onLogout: () => void }) {
     { id: "punkty", label: "Punkty", icon: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z" },
     { id: "cycles", label: "Rozliczenia", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" },
     { id: "stawki", label: "Stawki", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+    { id: "bank", label: "Bank Data Room", icon: "M3 10h18M5 10v9h14v-9M7 19v2h10v-2M12 3l9 5H3l9-5z" },
     { id: "disputes", label: "Spory", icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" },
     { id: "import", label: "Import CSV", icon: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" },
     { id: "catalog", label: "Katalog EAN", icon: "M5 5v14M9 5v14M11 5v14M14 5v14M18 5v14" },
@@ -566,6 +567,7 @@ function MasterApp({ user, onLogout }: { user: User; onLogout: () => void }) {
       {view === "punkty" && <MasterPunkty />}
       {view === "cycles" && <MasterCycles cycles={cycles} onReload={reload} />}
       {view === "stawki" && <MasterStawki />}
+      {view === "bank" && <MasterBankDataRoom />}
       {view === "disputes" && <MasterDisputes />}
       {view === "import" && <MasterCsvImport cycles={cycles} onReload={reload} />}
       {view === "catalog" && <MasterCatalog />}
@@ -583,8 +585,8 @@ function MasterDashboard({ overview }: { overview: any }) {
   return (
     <div>
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <KpiCard label="Abonament platformy" value={fmt(overview.platformFeeGrosze)} sub={`${overview.pointsCount} pkt × 149 zł`} />
-        <KpiCard label="Settlement fee" value={fmt(overview.settlementFeeGrosze)} sub="0,5% wolumenu" />
+        <KpiCard label="Abonament platformy" value={fmt(overview.platformFeeGrosze)} sub={`${overview.pointsCount} pkt × 500 zł`} />
+        <KpiCard label="Moduł kierowcy" value={fmt(overview.driverModuleFeeGrosze)} sub={`${overview.driversCount} pojazdów × 220 zł`} />
         <KpiCard label="Opakowania (mc)" value={fmtInt(overview.packagesMonth)} sub={`${overview.collectionsMonth} odbiory`} />
         <KpiCard label="ARR (szacunek)" value={fmt(overview.arrEstimateGrosze)} sub={`${fmt(overview.monthlyRecurringGrosze)} / mc`} />
       </div>
@@ -827,6 +829,14 @@ function MasterStawki() {
       </div>
     </div>
   );
+}
+
+function MasterBankDataRoom() {
+  const [data,setData]=useState<any>(null); const [err,setErr]=useState("");
+  useEffect(()=>{api("/api/admin/bank-data-room").then(setData).catch((e)=>setErr(e.message));},[]);
+  if(err)return <ErrorBox message={err}/>; if(!data)return <Loading/>;
+  const dl=()=>{const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=`edrs-bank-data-room-${new Date(data.generatedAt).toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)};
+  return <div className="space-y-4 fade-in"><div className="flex justify-between items-start"><div><h3 className="font-heading text-xl font-bold text-brand-navy">Bank Data Room v1</h3><p className="text-sm text-gray-500">Pakiet dowodowy read-only · bez scoringu i rekomendacji kredytowej</p></div><button onClick={dl} className="px-4 py-2 bg-brand-blue text-white rounded text-sm font-semibold">Pobierz JSON</button></div><div className="grid md:grid-cols-4 gap-4"><KpiCard label="Punkty" value={data.portfolio.points}/><KpiCard label="Aktywne" value={data.portfolio.activePoints}/><KpiCard label="Kompletność cykli" value={`${data.completeness.cycleCompletionPct}%`}/><KpiCard label="Braki hash" value={data.completeness.missingLedgerHashes}/></div><div className="bg-white border rounded-md p-5"><div className="text-xs font-semibold text-gray-500 uppercase">SHA-256 pakietu</div><code className="text-xs break-all">{data.sha256}</code><div className="mt-3 text-sm bg-yellow-50 border border-yellow-200 p-3 rounded">{data.disclaimer}</div></div></div>;
 }
 
 function MasterCycles({ cycles, onReload }: { cycles: any[]; onReload: () => void }) {
@@ -2352,24 +2362,13 @@ function InvestorFaktury() {
 }
 
 function DriverApp({ user, onLogout }: { user: User; onLogout: () => void }) {
-  const [points, setPoints] = useState<any[]>([]);
-  useEffect(() => { api("/api/driver/overview").then((d) => setPoints(d.points)).catch(() => {}); }, []);
-  return (
-    <div className="max-w-md mx-auto pb-12 p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Zlecenia</h2>
-        <button onClick={onLogout} className="p-2 hover:bg-gray-100 rounded-md"><Icon d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></button>
-      </div>
-      <div className="space-y-3">
-        {points.map((p) => (
-          <div key={p.id} className="bg-white border rounded-lg p-4">
-            <div className="font-medium">{p.id} · {p.district}</div>
-            <div className="text-sm text-gray-600">Zapełnienie: {p.fill_level}%</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  const [points,setPoints]=useState<any[]>([]); const [outbox,setOutbox]=useState<any[]>(()=>{try{return JSON.parse(localStorage.getItem("edrs-driver-outbox-v1")||"[]")}catch{return []}}); const [info,setInfo]=useState("");
+  const load=()=>api("/api/driver/overview").then(d=>setPoints(d.points)).catch(e=>setInfo(e.message)); useEffect(()=>{load()},[]);
+  useEffect(()=>{localStorage.setItem("edrs-driver-outbox-v1",JSON.stringify(outbox))},[outbox]);
+  const flush=async(q=outbox)=>{if(!q.length)return;try{const r:any=await api("/api/driver/jobs/sync",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({events:q})});const failed=q.filter((e:any)=>r.results.find((x:any)=>x.clientEventId===e.clientEventId)?.error);setOutbox(failed);setInfo(`Zsynchronizowano ${q.length-failed.length}/${q.length} zdarzeń`);load()}catch{setInfo("Brak sieci — zdarzenie zostało w kolejce offline")}};
+  useEffect(()=>{const fn=()=>flush();window.addEventListener("online",fn);return()=>window.removeEventListener("online",fn)},[outbox]);
+  const send=(p:any,action:string)=>{let reasonCode:any=null,notes:any=null,packages:any=null;if(action==="FAILED"){reasonCode=prompt("Kod: BRAK_DOSTEPU / PUNKT_ZAMKNIETY / BRAK_MIEJSCA_W_POJEZDZIE / AWARIA_POJAZDU / CZAS_PRACY / INNE","BRAK_DOSTEPU");if(!reasonCode)return;notes=prompt("Notatka / dowód opisowy","")||""}if(action==="COMPLETED"){packages=Number(prompt("Liczba odebranych opakowań","100")||0);if(packages<1)return}const ev={clientEventId:`driver:${user.id}:${Date.now()}:${p.id}:${action}`,pointId:p.id,action,reasonCode,notes,packages,occurredAt:Date.now(),syncSource:navigator.onLine?"online":"offline"};const q=[...outbox,ev];setOutbox(q);flush(q)};
+  return <div className="max-w-lg mx-auto pb-12 p-4"><div className="mb-4 flex items-center justify-between"><div><h2 className="font-heading text-xl font-bold text-brand-navy">Zlecenia kierowcy</h2><div className="text-xs text-gray-500">Kolejka offline: {outbox.length}</div></div><button onClick={onLogout} className="p-2">Wyloguj</button></div>{info&&<div className="mb-3 text-sm bg-brand-bluelight p-3 rounded">{info}</div>}<div className="space-y-3">{points.slice(0,20).map(p=><div key={p.id} className="bg-white border rounded-lg p-4"><div className="font-semibold">{p.id} · {p.district}</div><div className="text-sm text-gray-600">{p.address} · zapełnienie {p.fill_level}%</div><div className="grid grid-cols-3 gap-2 mt-3"><button onClick={()=>send(p,"ACCEPTED")} className="py-2 border rounded text-sm">Akceptuj</button><button onClick={()=>send(p,"COMPLETED")} className="py-2 bg-brand-blue text-white rounded text-sm">Zakończ</button><button onClick={()=>send(p,"FAILED")} className="py-2 bg-red-50 text-red-700 border border-red-200 rounded text-sm">Wyjątek</button></div></div>)}</div></div>;
 }
 
 // ─── PROMPT 9/10: Finanse inwestora (saldo, netting, płatność PolCard sandbox) ─

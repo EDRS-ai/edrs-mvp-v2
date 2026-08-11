@@ -274,3 +274,14 @@ Powód: poprzedni H1 „Poznaj edrs.io — kompleksowy system...” był zbyt bl
 - `<title>`: `edrs.io — Infrastruktura rozliczeniowa dla sieci recyklomatów`.
 - Pełny brief: `documents/personal-0DaTPe4r/edrs/2026-08-12_Brief_Marketingowy_edrs_io.md` — pozycjonowanie, persony, analiza komunikacji 20+ marek, hierarchy of messages, copy bank, struktura strony, dowody, kanały, obiekcje, KPI i plan 90 dni.
 - Browser verification: desktop 1365×768 + mobile 390×768; HTTP 200, brak page errors i failed requests. Znane ostrzeżenie: Tailwind Play CDN w produkcji (do usunięcia przed pełnym production hardening).
+
+## PROMPT 18 — mechanizmy MVP z researchu międzybranżowego (2026-08-12)
+
+- Migracja `0004_mvp_settlement_legs_driver_events`: `settlement_groups`, `settlement_legs`, `driver_job_events`; idempotency unique, indeksy status/cycle/party/driver.
+- Settlement manifest: `GET /api/admin/cycles/:id/manifest`; synchronizuje każdą ledger entry do niezależnej nogi ze stanem PENDING/ELIGIBLE/HELD/SETTLED/REVERSED; agregat dopuszcza PARTIALLY_SETTLED. `effective_at` bierze event/operational/booking date, `recorded_at` zachowuje czas zapisu.
+- Korekty pozostają kompensacyjne przez istniejące `reversal_of_id`; ledger ma 3 osie dat i SHA-256 hash chain.
+- Spory: istniejący 8-state lifecycle + DISPUTE_HOLD; manifest oznacza hold per noga.
+- Kierowca: `POST /api/driver/jobs/sync` przyjmuje idempotentny batch do 100 zdarzeń; akcje ACCEPTED/COMPLETED/FAILED, zamknięty katalog reason codes, notatka/dowód/GPS, occurred_at vs recorded_at, online/offline. UI ma lokalny outbox i auto-flush po odzyskaniu sieci.
+- Bank Data Room v1: `GET /api/admin/bank-data-room`; read-only pakiet portfolio/cycles/ledger/disputes/telemetry/reconciliation, completeness, SHA-256, disclaimer; jawnie bez score i rekomendacji kredytowej. UI z KPI + eksport JSON.
+- Model handlowy skorygowany wszędzie: 500 zł netto/punkt/mc + 220 zł netto/pojazd/mc; usunięte 149 zł i 0,5% z landingu/dashboardu/cennika demo.
+- E2E: landing desktop+mobile assertions 500/220/H1; DB potwierdza 3 nowe tabele; Bank Data Room 35 punktów/21 aktywnych/50% kompletności/hash; manifesty: cycle 4 = 1 group, 7 ELIGIBLE legs; driver FAILED BRAK_DOSTEPU z notatką zapisany i odczytany przez admin API. Zero błędów runtime.
