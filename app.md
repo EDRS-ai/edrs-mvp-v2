@@ -236,3 +236,15 @@ Pełny redesign wizualny wg wzorca emieszkaniec.pl (PDF od usera):
 - Chrome odzielone od semantyki: przyciski akcji green→brand-blue; statusy/finanse (credit/debit, fill-bary, badge) pozostały w kolorach semantycznych.
 - Strony legal: akcenty green→blue.
 - E2E: landing (desktop+mobile, screenshoty) + panel master (sidebar/KPI/Mapa live/Agenci przez browser_use) — zero błędów JS.
+
+## PROMPT 15 — ewidencja punktów + edytor stawek (2026-08-11)
+
+Filozofia integracji danych: API tam, gdzie dane płyną często (telemetria, płatności); wpis jednorazowy tam, gdzie płynie umowa (prąd, serwis, leasing = rate_cards); docelowo koszty rzeczywiste przez KSeF (faktury zakupowe).
+
+- **Endpointy master**: `GET/POST /api/admin/locations` (lista bez SYN-%, liczba syntetycznych, orgs inwestorskie, auto-numeracja nextId NET-xxx), `PATCH /api/admin/locations/:id` (edycja + deactivate=soft delete), `GET/POST /api/admin/rate-cards`.
+- **Walidacje POST locations**: regex ID, adres min 5, koordynaty wymagane i w granicach PL (48.9–55.1 / 13.9–24.2), duplikat ID → 409, inwestor musi istnieć, **ostrzeżenie bliskości <150 m** (equirectangular; 409 `BLISKO:` → klient confirm → force:true).
+- **Wersjonowanie stawek**: POST rate-cards zamyka bieżącą wersję tej samej kombinacji (valid_to = nowy valid_from) i wstawia nową — bez mutacji wartości; przeliczenia biorą stawkę z daty zdarzenia. Frakcje: LEASE/SERVICE/ELECTRICITY/PET/ALU/GLASS.
+- **Event log**: location.created / location.updated / location.deactivated / rate_card.created (source admin_ui, idempotency keys).
+- **UI**: zakładka „Punkty" (tabela + formularz z mini-mapą Leaflet: geokodowanie Nominatim client-side, klik/drag pineski, dzielnica, inwestor, czynsz) i „Stawki" (formularz nowej wersji + tabela z badge „aktualna", zamknięte wersje wyszarzone).
+- **Ogonki**: przywrócone polskie diakrytyki na landing page (56 fraz z PROMPT 14).
+- **E2E (browser_use)**: NET-011 dodany przez formularz (geokod Marszałkowska 100 → 52.22774,21.01252), widoczny w tabeli; nowa wersja stawki ELECTRICITY 45 zł — stara zamknięta 10.08.2026, nowa „aktualna"; zero błędów JS.

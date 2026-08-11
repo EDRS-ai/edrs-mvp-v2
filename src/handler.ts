@@ -1556,6 +1556,135 @@ export function createApp() {
   app.get("/polityka-prywatnosci", async (c) =>
     new Response(renderPolitykaPrywatnosci(), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600" } }));
 
+  // ── PROMPT 15: ewidencja punktow (CRUD) + edytor stawek (wersjonowanie) ────
+  app.get("/api/admin/locations", requireMaster, async (c) => {
+    const rows = c.env.sql.query<any>(
+      `SELECT l.id, l.address, l.district, l.lat, l.lng, l.investor_org_id, o.name AS investor_name,
+              l.monthly_rent_grosze, l.fill_level, l.status, l.launch_date, l.created_at
+         FROM locations l LEFT JOIN organizations o ON o.id = l.investor_org_id
+        WHERE l.deleted_at IS NULL AND l.id NOT LIKE 'SYN-%'
+        ORDER BY l.id`
+    );
+    const synCount = Number(c.env.sql.query<{ n: number }>("SELECT COUNT(*) AS n FROM locations WHERE id LIKE 'SYN-%' AND deleted_at IS NULL")[0].n);
+    const orgs = c.env.sql.query<any>("SELECT id, name FROM organizations WHERE type = 'investor' ORDER BY name");
+    const ids = c.env.sql.query<{ id: string }>("SELECT id FROM locations WHERE id LIKE 'NET-%'");
+    let maxN = 0;
+    for (const r of ids) { const m = /^NET-(\d+)/.exec(r.id); if (m) maxN = Math.max(maxN, Number(m[1])); }
+    const nextId = `NET-${String(maxN + 1).padStart(3, "0")}`;
+    return c.json({ locations: rows, synCount, orgs, nextId });
+  });
+
+  app.post("/api/admin/locations", requireMaster, async (c) => {
+    const b = await c.req.json().catch(() => ({}));
+    const id = String(b.id || "").trim().toUpperCase();
+    const address = String(b.address || "").trim();
+    const lat = b.lat == null ? null : Number(b.lat);
+    const lng = b.lng == null ? null : Number(b.lng);
+    if (!/^[A-Z0-9-]{3,24}$/.test(id)) return c.json({ error: "Nieprawid\u0142owy identyfikator punktu (A-Z, 0-9, my\u015blnik)" }, 400);
+    if (address.length < 5) return c.json({ error: "Adres jest wymagany (min. 5 znak\u00f3w)" }, 400);
+    if (lat == null || lng == null || !isFinite(lat) || !isFinite(lng)) return c.json({ error: "Brak wsp\u00f3\u0142rz\u0119dnych \u2014 u\u017cyj geokodowania lub ustaw pinezk\u0119 na mapie" }, 400);
+    if (lat < 48.9 || lat > 55.1 || lng < 13.9 || lng > 24.2) return c.json({ error: "Wsp\u00f3\u0142rz\u0119dne poza granicami Polski" }, 400);
+    const dup = c.env.sql.query<{ id: string }>("SELECT id FROM locations WHERE id = ? LIMIT 1", [id]);
+    if (dup.length > 0) return c.json({ error: `Punkt ${id} ju\u017c istnieje` }, 409);
+    const investorOrgId = b.investorOrgId ? Number(b.investorOrgId) : null;
+    if (investorOrgId != null) {
+      const org = c.env.sql.query<{ id: number }>("SELECT id FROM organizations WHERE id = ? AND type = 'investor'", [investorOrgId]);
+      if (org.length === 0) return c.json({ error: "Wskazany inwestor nie istnieje" }, 400);
+    }
+    if (!b.force) {
+      const near = c.env.sql.query<any>("SELECT id, address, lat, lng FROM locations WHERE deleted_at IS NULL AND lat IS NOT NULL AND id NOT LIKE 'SYN-%'");
+      for (const p of near) {
+        const dM = 111320 * Math.sqrt(Math.pow(p.lat - lat, 2) + Math.pow((p.lng - lng) * Math.cos((lat * Math.PI) / 180), 2));
+        if (dM < 150) return c.json({ error: `BLISKO: ${p.id} (${p.address}) jest ~${Math.round(dM)} m od nowego punktu.` }, 409);
+      }
+    }
+    const now = Date.now();
+    c.env.sql.exec(
+      `INSERT INTO locations (id, address, district, lat, lng, investor_org_id, monthly_rent_grosze, launch_date, fill_level, status, monthly_packages, created_at, updated_at, version)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'online', 0, ?, ?, 1)`,
+      [id, address, b.district ? String(b.district) : null, lat, lng, investorOrgId, b.monthlyRentGrosze ? Math.round(Number(b.monthlyRentGrosze)) : null, b.launchDate ? String(b.launchDate) : null, now, now]
+    );
+    c.env.sql.exec(
+      "INSERT INTO event_log (point_id, event_type, idempotency_key, payload_json, source, created_at) VALUES (?, 'location.created', ?, ?, 'admin_ui', ?)",
+      [id, `location:${id}:created`, JSON.stringify({ id, address, lat, lng, investorOrgId }), now]
+    );
+    return c.json({ ok: true, id });
+  });
+
+  app.patch("/api/admin/locations/:id", requireMaster, async (c) => {
+    const id = c.req.param("id");
+    const row = c.env.sql.query<any>("SELECT id FROM locations WHERE id = ? AND deleted_at IS NULL", [id]);
+    if (row.length === 0) return c.json({ error: "Punkt nie istnieje" }, 404);
+    const b = await c.req.json().catch(() => ({}));
+    const now = Date.now();
+    if (b.deactivate === true) {
+      c.env.sql.exec("UPDATE locations SET status = 'offline', deleted_at = ?, updated_at = ?, version = version + 1 WHERE id = ?", [now, now, id]);
+      c.env.sql.exec("INSERT INTO event_log (point_id, event_type, idempotency_key, payload_json, source, created_at) VALUES (?, 'location.deactivated', ?, ?, 'admin_ui', ?)", [id, `location:${id}:deactivated:${now}`, JSON.stringify({ id }), now]);
+      return c.json({ ok: true });
+    }
+    const sets: string[] = []; const vals: any[] = [];
+    if (b.address != null) { sets.push("address = ?"); vals.push(String(b.address)); }
+    if (b.district !== undefined) { sets.push("district = ?"); vals.push(b.district ? String(b.district) : null); }
+    if (b.lat != null && b.lng != null) { sets.push("lat = ?", "lng = ?"); vals.push(Number(b.lat), Number(b.lng)); }
+    if (b.investorOrgId !== undefined) { sets.push("investor_org_id = ?"); vals.push(b.investorOrgId ? Number(b.investorOrgId) : null); }
+    if (b.monthlyRentGrosze !== undefined) { sets.push("monthly_rent_grosze = ?"); vals.push(b.monthlyRentGrosze ? Math.round(Number(b.monthlyRentGrosze)) : null); }
+    if (sets.length === 0) return c.json({ error: "Brak zmian" }, 400);
+    sets.push("updated_at = ?"); vals.push(now);
+    vals.push(id);
+    c.env.sql.exec(`UPDATE locations SET ${sets.join(", ")}, version = version + 1 WHERE id = ?`, vals);
+    c.env.sql.exec("INSERT INTO event_log (point_id, event_type, payload_json, source, created_at) VALUES (?, 'location.updated', ?, 'admin_ui', ?)", [id, JSON.stringify(b), now]);
+    return c.json({ ok: true });
+  });
+
+  app.get("/api/admin/rate-cards", requireMaster, async (c) => {
+    const rows = c.env.sql.query<any>(
+      `SELECT rc.id, rc.contract_id, rc.fraction, rc.collection_model, rc.packaging_type, rc.rate_value, rc.rate_unit, rc.currency, rc.description, rc.valid_from, rc.valid_to,
+              ct.type AS contract_type, oa.name AS party_a, ob.name AS party_b
+         FROM rate_cards rc
+         JOIN contracts ct ON ct.id = rc.contract_id
+         JOIN organizations oa ON oa.id = ct.party_a_org_id
+         JOIN organizations ob ON ob.id = ct.party_b_org_id
+        WHERE rc.deleted_at IS NULL
+        ORDER BY rc.contract_id, rc.fraction, rc.valid_from DESC`
+    );
+    const contracts = c.env.sql.query<any>(
+      `SELECT ct.id, ct.type, oa.name AS party_a, ob.name AS party_b, ct.status
+         FROM contracts ct JOIN organizations oa ON oa.id = ct.party_a_org_id JOIN organizations ob ON ob.id = ct.party_b_org_id
+        WHERE ct.deleted_at IS NULL AND ct.status = 'active' ORDER BY ct.id`
+    );
+    return c.json({ rateCards: rows, contracts });
+  });
+
+  app.post("/api/admin/rate-cards", requireMaster, async (c) => {
+    const b = await c.req.json().catch(() => ({}));
+    const contractId = Number(b.contractId);
+    const fraction = String(b.fraction || "").toUpperCase();
+    const collectionModel = String(b.collectionModel || "monthly_fixed");
+    const packagingType = String(b.packagingType || "n/a");
+    const rateValue = Number(b.rateValue);
+    const rateUnit = String(b.rateUnit || "PLN_PER_POINT_MONTH");
+    const ALLOWED = ["LEASE", "SERVICE", "ELECTRICITY", "PET", "ALU", "GLASS"];
+    if (!contractId || !ALLOWED.includes(fraction)) return c.json({ error: "Nieprawid\u0142owy kontrakt lub frakcja" }, 400);
+    if (!isFinite(rateValue) || rateValue < 0 || rateValue > 100000) return c.json({ error: "Nieprawid\u0142owa stawka" }, 400);
+    const ct = c.env.sql.query<{ id: number }>("SELECT id FROM contracts WHERE id = ? AND status = 'active' AND deleted_at IS NULL", [contractId]);
+    if (ct.length === 0) return c.json({ error: "Kontrakt nie istnieje lub jest nieaktywny" }, 400);
+    const validFrom = b.validFrom ? Date.parse(String(b.validFrom)) : Date.now();
+    if (!isFinite(validFrom)) return c.json({ error: "Nieprawid\u0142owa data pocz\u0105tku obowi\u0105zywania" }, 400);
+    const now = Date.now();
+    c.env.sql.exec(
+      `UPDATE rate_cards SET valid_to = ?, updated_at = ?, version = version + 1
+        WHERE contract_id = ? AND fraction = ? AND collection_model = ? AND packaging_type = ? AND valid_to IS NULL AND deleted_at IS NULL AND valid_from < ?`,
+      [validFrom, now, contractId, fraction, collectionModel, packagingType, validFrom]
+    );
+    c.env.sql.exec(
+      `INSERT INTO rate_cards (contract_id, valid_from, fraction, collection_model, packaging_type, rate_value, rate_unit, currency, description, created_at, updated_at, version)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'PLN', ?, ?, ?, 1)`,
+      [contractId, validFrom, fraction, collectionModel, packagingType, rateValue, rateUnit, b.description ? String(b.description) : null, now, now]
+    );
+    c.env.sql.exec("INSERT INTO event_log (event_type, payload_json, source, created_at) VALUES ('rate_card.created', ?, 'admin_ui', ?)", [JSON.stringify({ contractId, fraction, collectionModel, rateValue, rateUnit, validFrom }), now]);
+    return c.json({ ok: true });
+  });
+
   app.post("/admin/reseed", async (c) => {
     if (!c.env.ctx.session?.isOwner) return c.json({ error: "forbidden" }, 403);
     await reseed(c.env);

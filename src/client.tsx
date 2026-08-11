@@ -139,21 +139,21 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
   if (inviteToken) return <SignupScreen token={inviteToken} />;
   const logoIcon = "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15";
   const feats = [
-    { t: "Ewidencja", h: "Ewidencja punktow i urzadzen", d: "rejestr lokalizacji, recyklomatow, organizacji i umow z pelna historia zmian. Zaimportuj lub wprowadz dane calej sieci i miej je zawsze pod reka, w jednym miejscu.", i: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" },
-    { t: "Rozliczenia", h: "Automatyczne naliczenia i rozliczenia", d: "oplaty miesieczne naliczane wylacznie ze stawek umownych oraz wielostronne rozliczenie kierowca-inwestor-punkt. Niezmienialny dziennik ksiegowy z kryptograficznym lancuchem zapisow.", i: "M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" },
-    { t: "Mapa live", h: "Mapa i telemetria w czasie rzeczywistym", d: "zapelnienie, statusy urzadzen i zdarzenia operacyjne na mapie Polski. Alerty przepelnienia i brakujacego odbioru docieraja do operatora, zanim zadzwoni punkt.", i: "M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" },
-    { t: "e-Kartoteka", h: "e-Kartoteka inwestora", d: "saldo, wyciag operacji i netting: oplaty potracane z przychodow kaucyjnych. Doplaty online przez licencjonowanego operatora platnosci, ksiegowane automatycznie.", i: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
-    { t: "Dokumenty", h: "Cyfrowe archiwum dokumentow", d: "umowy, protokoly i regulaminy online, udostepniane per inwestor lub globalnie. Wersje elektroniczne oraz skany dokumentow papierowych w jednym, uporzadkowanym archiwum.", i: "M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
-    { t: "Sprawozdania", h: "Sprawozdania z akceptacja online", d: "miesieczne rozliczenie generowane automatycznie z dziennika ksiegowego, do pobrania i akceptacji jednym klikniecem, z rejestrowanym sladem audytowym.", i: "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
-    { t: "Komunikacja", h: "Komunikacja z inwestorami", d: "bezposrednie watki inwestor-operator z historia i licznikiem nieprzeczytanych wiadomosci. Koniec z ustaleniami przez telefon, ktorych nikt nie zapisal.", i: "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" },
-    { t: "Samokontrola", h: "Wewnetrzni agenci systemu", d: "co godzine automatycznie weryfikuja spojnosc danych, lancuch ksiegowy, terminy sporow i naliczenia. System sam pilnuje, zeby wszystko dzialalo sprawnie.", i: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" },
+    { t: "Ewidencja", h: "Ewidencja punktów i urządzeń", d: "rejestr lokalizacji, recyklomatów, organizacji i umów z pełną historią zmian. Zaimportuj lub wprowadź dane całej sieci i miej je zawsze pod ręką, w jednym miejscu.", i: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" },
+    { t: "Rozliczenia", h: "Automatyczne naliczenia i rozliczenia", d: "opłaty miesięczne naliczane wyłącznie ze stawek umownych oraz wielostronne rozliczenie kierowca–inwestor–punkt. Niezmienialny dziennik księgowy z kryptograficznym łańcuchem zapisów.", i: "M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" },
+    { t: "Mapa live", h: "Mapa i telemetria w czasie rzeczywistym", d: "zapełnienie, statusy urządzeń i zdarzenia operacyjne na mapie Polski. Alerty przepełnienia i brakującego odbioru docierają do operatora, zanim zadzwoni punkt.", i: "M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" },
+    { t: "e-Kartoteka", h: "e-Kartoteka inwestora", d: "saldo, wyciąg operacji i netting: opłaty potrącane z przychodów kaucyjnych. Dopłaty online przez licencjonowanego operatora płatności, księgowane automatycznie.", i: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+    { t: "Dokumenty", h: "Cyfrowe archiwum dokumentów", d: "umowy, protokoły i regulaminy online, udostępniane per inwestor lub globalnie. Wersje elektroniczne oraz skany dokumentów papierowych w jednym, uporządkowanym archiwum.", i: "M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+    { t: "Sprawozdania", h: "Sprawozdania z akceptacją online", d: "miesięczne rozliczenie generowane automatycznie z dziennika księgowego, do pobrania i akceptacji jednym kliknięciem, z rejestrowanym śladem audytowym.", i: "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+    { t: "Komunikacja", h: "Komunikacja z inwestorami", d: "bezpośrednie wątki inwestor–operator z historią i licznikiem nieprzeczytanych wiadomości. Koniec z ustaleniami przez telefon, których nikt nie zapisał.", i: "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" },
+    { t: "Samokontrola", h: "Wewnętrzni agenci systemu", d: "co godzinę automatycznie weryfikują spójność danych, łańcuch księgowy, terminy sporów i naliczenia. System sam pilnuje, żeby wszystko działało sprawnie.", i: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" },
   ];
   const benefits = [
-    { b: "dostep online 24/7", r: "system dostepny w chmurze przez szyfrowane polaczenie w przegladarce, bez instalacji oprogramowania." },
-    { b: "audytowalny dziennik ksiegowy", r: "kazdy zapis rozliczeniowy jest niezmienialny i spiety kryptograficznym lancuchem — historia nie do podrobienia." },
-    { b: "role i uprawnienia (RBAC)", r: "operator, inwestor i kierowca widza wylacznie swoje dane. Kazdy inwestor ma odseparowana kartoteke." },
-    { b: "automatyzacja", r: "naliczenia, sprawozdania i kontrola jakosci danych wykonuja sie same — wewnetrzni agenci pracuja co godzine." },
-    { b: "integracje", r: "KSeF (faktury ustrukturyzowane), licencjonowany operator platnosci, import CSV z urzadzen i tras." },
+    { b: "dostęp online 24/7", r: "system dostępny w chmurze przez szyfrowane połączenie w przeglądarce, bez instalacji oprogramowania." },
+    { b: "audytowalny dziennik księgowy", r: "każdy zapis rozliczeniowy jest niezmienialny i spięty kryptograficznym łańcuchem — historia nie do podrobienia." },
+    { b: "role i uprawnienia (RBAC)", r: "operator, inwestor i kierowca widzą wyłącznie swoje dane. Każdy inwestor ma odseparowaną kartotekę." },
+    { b: "automatyzacja", r: "naliczenia, sprawozdania i kontrola jakości danych wykonują się same — wewnętrzni agenci pracują co godzinę." },
+    { b: "integracje", r: "KSeF (faktury ustrukturyzowane), licencjonowany operator płatności, import CSV z urządzeń i tras." },
   ];
   return (
     <div className="min-h-screen bg-white text-gray-800">
@@ -166,14 +166,14 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
             <span className="font-heading font-bold text-2xl text-brand-navy">edrs.io</span>
           </div>
           <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-gray-600">
-            <a href="#rozwiazanie" className="hover:text-brand-blue">Mozliwosci</a>
+            <a href="#rozwiazanie" className="hover:text-brand-blue">Możliwości</a>
             <a href="#korzysci" className="hover:text-brand-blue">Co zyskujesz</a>
             <a href="#pricing" className="hover:text-brand-blue">Cennik</a>
             <a href="/regulamin" className="hover:text-brand-blue">Regulamin</a>
           </nav>
           <div className="flex items-center gap-3">
-            <button onClick={onLoginClick} className="text-sm text-gray-600 hover:text-brand-blue font-medium">Zaloguj sie</button>
-            <button onClick={onLoginClick} className="px-4 py-2 bg-brand-orange text-white text-sm rounded font-bold hover:bg-brand-orangedark">Przetestuj juz dzis!</button>
+            <button onClick={onLoginClick} className="text-sm text-gray-600 hover:text-brand-blue font-medium">Zaloguj się</button>
+            <button onClick={onLoginClick} className="px-4 py-2 bg-brand-orange text-white text-sm rounded font-bold hover:bg-brand-orangedark">Przetestuj już dziś!</button>
           </div>
         </div>
       </header>
@@ -181,11 +181,11 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
       <section className="bg-white">
         <div className="max-w-7xl mx-auto px-6 pt-10 pb-4 text-center">
           <h1 className="font-heading text-3xl lg:text-4xl font-bold text-brand-navy leading-tight max-w-4xl mx-auto">
-            Poznaj edrs.io — kompleksowy system do zarzadzania i rozliczen sieci kaucyjnej poza handlem
+            Poznaj edrs.io — kompleksowy system do zarządzania i rozliczeń sieci kaucyjnej poza handlem
           </h1>
           <p className="text-gray-600 mt-4 max-w-3xl mx-auto">
-            Telemetria recyklomatow, wielostronne rozliczenia i e-kartoteka inwestora w jednej audytowalnej petli.
-            Bez szacunkow, bez telefonow, bez arkuszy.
+            Telemetria recyklomatów, wielostronne rozliczenia i e-kartoteka inwestora w jednej audytowalnej pętli.
+            Bez szacunków, bez telefonów, bez arkuszy.
           </p>
         </div>
         <div className="max-w-7xl mx-auto px-6 py-10 grid lg:grid-cols-2 gap-8">
@@ -198,10 +198,10 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
               </div>
               <div className="space-y-2">
                 {[
-                  { id: "NET-003 Ursynow", fill: 94, color: "bg-red-500" },
+                  { id: "NET-003 Ursynów", fill: 94, color: "bg-red-500" },
                   { id: "NET-007 Ursus", fill: 91, color: "bg-red-500" },
                   { id: "NET-005 Wola", fill: 78, color: "bg-yellow-500" },
-                  { id: "NET-002 Mokotow", fill: 62, color: "bg-yellow-500" },
+                  { id: "NET-002 Mokotów", fill: 62, color: "bg-yellow-500" },
                   { id: "NET-008 Bemowo", fill: 56, color: "bg-brand-blue" },
                   { id: "NET-006 Praga", fill: 23, color: "bg-brand-blue" },
                 ].map((pt) => (
@@ -215,22 +215,22 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
                 ))}
               </div>
               <p className="text-sm text-gray-600 mt-5 leading-relaxed">
-                Ewidencja punktow, mapa live, cykle rozliczeniowe, import CSV, spory i katalog opakowan —
-                wszystko w jednym panelu, z pelna historia zdarzen.
+                Ewidencja punktów, mapa live, cykle rozliczeniowe, import CSV, spory i katalog opakowań —
+                wszystko w jednym panelu, z pełną historią zdarzeń.
               </p>
             </div>
-            <button onClick={onLoginClick} className="font-heading text-xl font-bold text-brand-blue hover:text-brand-bluedark mt-6 text-center w-full">Przetestuj juz dzis!</button>
+            <button onClick={onLoginClick} className="font-heading text-xl font-bold text-brand-blue hover:text-brand-bluedark mt-6 text-center w-full">Przetestuj już dziś!</button>
           </div>
           <div className="rounded-3xl border-4 border-brand-orange p-8 flex flex-col">
             <div className="font-heading text-2xl font-bold text-gray-400 text-center mb-6">Panel inwestora online</div>
             <div className="flex-1">
               <ul className="space-y-3 text-sm text-gray-600">
                 {[
-                  ["Pulpit i mapa live", "wylacznie wlasne punkty i zdarzenia inwestora"],
-                  ["e-Kartoteka", "saldo, wyciag operacji, naliczenia i netting z kaucji"],
-                  ["Platnosci online", "doplata salda przez operatora platnosci, ksiegowana automatycznie"],
-                  ["Sprawozdania", "miesieczne rozliczenie z akceptacja jednym kliknieciem"],
-                  ["Dokumenty i komunikacja", "archiwum umow oraz bezposredni watek z operatorem"],
+                  ["Pulpit i mapa live", "wyłącznie własne punkty i zdarzenia inwestora"],
+                  ["e-Kartoteka", "saldo, wyciąg operacji, naliczenia i netting z kaucji"],
+                  ["Platnosci online", "dopłata salda przez operatora płatności, księgowana automatycznie"],
+                  ["Sprawozdania", "miesięczne rozliczenie z akceptacją jednym kliknięciem"],
+                  ["Dokumenty i komunikacja", "archiwum umów oraz bezpośredni wątek z operatorem"],
                 ].map(([b, r]) => (
                   <li key={b} className="flex gap-2.5">
                     <Icon d="M5 13l4 4L19 7" className="w-4 h-4 text-brand-orange shrink-0 mt-0.5" />
@@ -239,7 +239,7 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
                 ))}
               </ul>
               <p className="text-sm text-gray-600 mt-5 leading-relaxed">
-                Kazdy inwestor loguje sie do wlasnej, odseparowanej kartoteki — jak mieszkaniec do panelu wspolnoty.
+                Każdy inwestor loguje się do własnej, odseparowanej kartoteki — jak mieszkaniec do panelu wspólnoty.
               </p>
             </div>
             <button onClick={onLoginClick} className="font-heading text-xl font-bold text-brand-orange hover:text-brand-orangedark mt-6 text-center w-full">Zobacz demo panelu</button>
@@ -250,7 +250,7 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
       <section id="rozwiazanie" className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-6">
           <h2 className="font-heading text-3xl font-bold text-brand-navy text-center mb-12 max-w-3xl mx-auto">
-            Poznaj mozliwosci Twojego nowego systemu
+            Poznaj możliwości Twojego nowego systemu
           </h2>
           <div className="grid md:grid-cols-2 gap-x-12 gap-y-10">
             {feats.map((m, idx) => {
@@ -278,13 +278,13 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
       <section className="py-10 bg-white">
         <div className="max-w-6xl mx-auto px-6">
           <div className="rounded-3xl border-4 border-brand-orange p-8 lg:p-10">
-            <h3 className="font-heading text-2xl font-bold text-brand-navy mb-3">Polacz swoja siec kaucyjna z KSeF!</h3>
+            <h3 className="font-heading text-2xl font-bold text-brand-navy mb-3">Połącz swoją sieć kaucyjną z KSeF!</h3>
             <p className="text-sm text-gray-600 leading-relaxed max-w-4xl">
-              Od 2026 roku faktury ustrukturyzowane staja sie obowiazkowe dla kolejnych grup podatnikow.
-              edrs.io wystawia faktury rozliczeniowe automatycznie na podstawie dziennika ksiegowego
-              i przygotowuje je w formacie gotowym do wysylki do Krajowego Systemu e-Faktur.
+              Od 2026 roku faktury ustrukturyzowane stają się obowiązkowe dla kolejnych grup podatników.
+              edrs.io wystawia faktury rozliczeniowe automatycznie na podstawie dziennika księgowego
+              i przygotowuje je w formacie gotowym do wysyłki do Krajowego Systemu e-Faktur.
             </p>
-            <div className="font-heading text-xl font-bold text-brand-orange text-center mt-6">Faktury KSeF w cenie platformy — bez dodatkowych modulow</div>
+            <div className="font-heading text-xl font-bold text-brand-orange text-center mt-6">Faktury KSeF w cenie platformy — bez dodatkowych modułów</div>
           </div>
         </div>
       </section>
@@ -292,7 +292,7 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
       <section id="korzysci" className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-start">
           <div>
-            <h2 className="font-heading text-2xl font-bold text-brand-navy mb-6">Sprawdz, co zyskujesz korzystajac z naszej platformy!</h2>
+            <h2 className="font-heading text-2xl font-bold text-brand-navy mb-6">Sprawdź, co zyskujesz korzystając z naszej platformy!</h2>
             <ul className="space-y-4 text-sm text-gray-600">
               {benefits.map((x) => (
                 <li key={x.b} className="flex gap-2.5">
@@ -303,36 +303,36 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
             </ul>
           </div>
           <div className="text-center pt-4">
-            <div className="font-heading text-xl font-bold text-brand-orange mb-8">Z pilotazu platformy korzysta juz</div>
+            <div className="font-heading text-xl font-bold text-brand-orange mb-8">Z pilotażu platformy korzysta już</div>
             <div className="grid grid-cols-3 gap-6">
-              <div><div className="font-heading text-5xl lg:text-6xl font-bold text-brand-orange">10</div><div className="font-heading font-bold text-brand-orange mt-1">punktow<br/>pilotazu</div></div>
-              <div><div className="font-heading text-5xl lg:text-6xl font-bold text-brand-orange">5</div><div className="font-heading font-bold text-brand-orange mt-1">kierowcow<br/>w sieci</div></div>
-              <div><div className="font-heading text-5xl lg:text-6xl font-bold text-brand-orange">36 tys.</div><div className="font-heading font-bold text-brand-orange mt-1">zl ARR<br/>pilotazu</div></div>
+              <div><div className="font-heading text-5xl lg:text-6xl font-bold text-brand-orange">10</div><div className="font-heading font-bold text-brand-orange mt-1">punktów<br/>pilotażu</div></div>
+              <div><div className="font-heading text-5xl lg:text-6xl font-bold text-brand-orange">5</div><div className="font-heading font-bold text-brand-orange mt-1">kierowców<br/>w sieci</div></div>
+              <div><div className="font-heading text-5xl lg:text-6xl font-bold text-brand-orange">36 tys.</div><div className="font-heading font-bold text-brand-orange mt-1">zł ARR<br/>pilotażu</div></div>
             </div>
-            <div className="text-xs text-gray-400 mt-6">Dane z pilotazu referencyjnego operatora sieci RVM (Warszawa).</div>
+            <div className="text-xs text-gray-400 mt-6">Dane z pilotażu referencyjnego operatora sieci RVM (Warszawa).</div>
           </div>
         </div>
       </section>
 
       <section id="pricing" className="py-16 bg-gray-50 border-t border-gray-100">
         <div className="max-w-6xl mx-auto px-6">
-          <h2 className="font-heading text-3xl font-bold text-brand-navy text-center mb-3">Prosty cennik. Placisz za wartosc.</h2>
-          <p className="text-gray-600 text-center mb-10">Staly abonament za punkt + 0,5% od wolumenu kaucji. KSeF i sprawozdania w cenie.</p>
+          <h2 className="font-heading text-3xl font-bold text-brand-navy text-center mb-3">Prosty cennik. Płacisz za wartość.</h2>
+          <p className="text-gray-600 text-center mb-10">Stały abonament za punkt + 0,5% od wolumenu kaucji. KSeF i sprawozdania w cenie.</p>
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             <div className="bg-white p-8 rounded-2xl border-2 border-gray-200">
               <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Abonament platformy</div>
-              <div className="mt-3 flex items-baseline gap-1"><div className="font-heading text-4xl font-bold text-brand-navy">149 zl</div><div className="text-sm text-gray-500">/ punkt / mc</div></div>
-              <div className="text-sm text-gray-500 mt-1">netto - stala oplata</div>
+              <div className="mt-3 flex items-baseline gap-1"><div className="font-heading text-4xl font-bold text-brand-navy">149 zł</div><div className="text-sm text-gray-500">/ punkt / mc</div></div>
+              <div className="text-sm text-gray-500 mt-1">netto · stała opłata</div>
             </div>
             <div className="bg-white p-8 rounded-2xl border-4 border-brand-blue relative">
-              <div className="absolute top-4 right-4 px-2 py-1 bg-brand-blue text-white text-xs rounded font-bold">skaluje sie</div>
+              <div className="absolute top-4 right-4 px-2 py-1 bg-brand-blue text-white text-xs rounded font-bold">skaluje się</div>
               <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Settlement fee</div>
               <div className="mt-3 flex items-baseline gap-1"><div className="font-heading text-4xl font-bold text-brand-navy">0,5%</div><div className="text-sm text-gray-500">wolumenu kaucji</div></div>
-              <div className="text-sm text-gray-500 mt-1">netto - tylko od sukcesu</div>
+              <div className="text-sm text-gray-500 mt-1">netto · tylko od sukcesu</div>
             </div>
             <div className="bg-white p-8 rounded-2xl border-2 border-brand-orange">
               <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Bank Data Room</div>
-              <div className="mt-3 flex items-baseline gap-1"><div className="font-heading text-4xl font-bold text-brand-navy">0 zl</div><div className="text-sm text-gray-500">dodatkowo</div></div>
+              <div className="mt-3 flex items-baseline gap-1"><div className="font-heading text-4xl font-bold text-brand-navy">0 zł</div><div className="text-sm text-gray-500">dodatkowo</div></div>
               <div className="text-sm text-gray-500 mt-1">w cenie platformy</div>
             </div>
           </div>
@@ -348,12 +348,12 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
               </div>
               <span className="font-heading font-bold text-xl text-brand-navy">edrs.io</span>
             </div>
-            <p className="leading-relaxed">System operacyjny sieci kaucyjnej poza handlem. Telemetria, rozliczenia wielostronne i e-kartoteka inwestora w jednej audytowalnej petli.</p>
+            <p className="leading-relaxed">System operacyjny sieci kaucyjnej poza handlem. Telemetria, rozliczenia wielostronne i e-kartoteka inwestora w jednej audytowalnej pętli.</p>
           </div>
           <div>
             <div className="font-heading text-brand-navy font-bold mb-4 uppercase tracking-wider text-xs">Produkt</div>
             <ul className="space-y-2">
-              <li><a href="#rozwiazanie" className="hover:text-brand-blue">Mozliwosci systemu</a></li>
+              <li><a href="#rozwiazanie" className="hover:text-brand-blue">Możliwości systemu</a></li>
               <li><a href="#korzysci" className="hover:text-brand-blue">Co zyskujesz</a></li>
               <li><a href="#pricing" className="hover:text-brand-blue">Cennik</a></li>
             </ul>
@@ -362,7 +362,7 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
             <div className="font-heading text-brand-navy font-bold mb-4 uppercase tracking-wider text-xs">Dokumenty</div>
             <ul className="space-y-2">
               <li><a href="/regulamin" className="hover:text-brand-blue">Regulamin platformy</a></li>
-              <li><a href="/polityka-prywatnosci" className="hover:text-brand-blue">Polityka prywatnosci (RODO)</a></li>
+              <li><a href="/polityka-prywatnosci" className="hover:text-brand-blue">Polityka prywatności (RODO)</a></li>
             </ul>
           </div>
           <div>
@@ -370,16 +370,16 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
             <ul className="space-y-2">
               <li>kontakt@edrs.io</li>
               <li>Warszawa, Polska</li>
-              <li className="pt-2 text-xs text-gray-400">Operatorem platformy jest NET4ZERO. Platnosci obsluguje licencjonowany dostawca uslug platniczych.</li>
+              <li className="pt-2 text-xs text-gray-400">Operatorem platformy jest NET4ZERO. Płatności obsługuje licencjonowany dostawca usług płatniczych.</li>
             </ul>
           </div>
         </div>
         <div className="border-t border-gray-100">
           <div className="max-w-7xl mx-auto px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-400">
-            <span>(c) 2026 edrs.io - NET4ZERO - Wszystkie prawa zastrzezone</span>
+            <span>© 2026 edrs.io · NET4ZERO · Wszystkie prawa zastrzeżone</span>
             <span className="flex gap-4">
               <a href="/regulamin" className="hover:text-brand-blue">Regulamin</a>
-              <a href="/polityka-prywatnosci" className="hover:text-brand-blue">Polityka prywatnosci</a>
+              <a href="/polityka-prywatnosci" className="hover:text-brand-blue">Polityka prywatności</a>
             </span>
           </div>
         </div>
@@ -485,7 +485,9 @@ function MasterApp({ user, onLogout }: { user: User; onLogout: () => void }) {
   const nav = [
     { id: "dashboard", label: "Dashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
     { id: "mapa", label: "Mapa live", icon: "M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" },
+    { id: "punkty", label: "Punkty", icon: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z" },
     { id: "cycles", label: "Rozliczenia", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" },
+    { id: "stawki", label: "Stawki", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
     { id: "disputes", label: "Spory", icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" },
     { id: "import", label: "Import CSV", icon: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" },
     { id: "catalog", label: "Katalog EAN", icon: "M5 5v14M9 5v14M11 5v14M14 5v14M18 5v14" },
@@ -508,7 +510,9 @@ function MasterApp({ user, onLogout }: { user: User; onLogout: () => void }) {
       {error && <ErrorBox message={error} />}
       {view === "dashboard" && <MasterDashboard overview={overview} />}
       {view === "mapa" && <MasterMapaLive user={user} />}
+      {view === "punkty" && <MasterPunkty />}
       {view === "cycles" && <MasterCycles cycles={cycles} onReload={reload} />}
+      {view === "stawki" && <MasterStawki />}
       {view === "disputes" && <MasterDisputes />}
       {view === "import" && <MasterCsvImport cycles={cycles} onReload={reload} />}
       {view === "catalog" && <MasterCatalog />}
@@ -545,6 +549,229 @@ function KpiCard({ label, value, sub }: { label: string; value: any; sub?: strin
       <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{label}</div>
       <div className="font-heading text-3xl font-bold text-brand-navy mt-1 tabular-nums">{value}</div>
       {sub && <div className="text-xs text-gray-500 mt-2">{sub}</div>}
+    </div>
+  );
+}
+
+// PROMPT 15: ewidencja punktow (formularz z geokodowaniem + mini-mapa) i edytor stawek.
+function MasterPunkty() {
+  const [data, setData] = useState<any>(null);
+  const [err, setErr] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const load = useCallback(() => { api("/api/admin/locations").then(setData).catch((e) => setErr(e.message)); }, []);
+  useEffect(() => { load(); }, [load]);
+  if (err) return <ErrorBox message={err} />;
+  if (!data) return <Loading />;
+  return (
+    <div className="space-y-4 fade-in">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h3 className="font-heading text-lg font-bold text-brand-navy">Ewidencja punkt\u00f3w</h3>
+          <p className="text-xs text-gray-500">{data.locations.length} punkt\u00f3w rzeczywistych \u00b7 {fmtInt(data.synCount)} syntetycznych (demo) ukrytych na li\u015bcie</p>
+        </div>
+        <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-brand-blue text-white text-sm rounded font-semibold hover:bg-brand-bluedark">{showForm ? "Zamknij formularz" : "+ Dodaj punkt"}</button>
+      </div>
+      {showForm && <LocationForm nextId={data.nextId} orgs={data.orgs} onSaved={() => { setShowForm(false); load(); }} />}
+      <div className="bg-white rounded-md border border-gray-200 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead><tr className="border-b border-gray-200 text-left text-xs text-gray-500 uppercase">
+            <th className="px-4 py-2.5">ID</th><th className="px-4 py-2.5">Adres</th><th className="px-4 py-2.5">Dzielnica</th><th className="px-4 py-2.5">Inwestor</th><th className="px-4 py-2.5 text-right">Czynsz/mc</th><th className="px-4 py-2.5">Zape\u0142nienie</th><th className="px-4 py-2.5">Status</th><th className="px-4 py-2.5"></th>
+          </tr></thead>
+          <tbody>
+            {data.locations.map((l: any) => (
+              <tr key={l.id} className="border-b border-gray-100 hover:bg-gray-50">
+                <td className="px-4 py-2.5 font-mono text-xs">{l.id}</td>
+                <td className="px-4 py-2.5">{l.address}</td>
+                <td className="px-4 py-2.5 text-gray-500">{l.district ?? "\u2014"}</td>
+                <td className="px-4 py-2.5">{l.investor_name ?? <span className="text-gray-400">nieprzypisany</span>}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums">{l.monthly_rent_grosze ? fmt(l.monthly_rent_grosze) : "\u2014"}</td>
+                <td className="px-4 py-2.5"><FillBar value={l.fill_level} /></td>
+                <td className="px-4 py-2.5"><span className={`px-2 py-0.5 text-xs rounded font-medium ${l.status === "online" ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-600"}`}>{l.status}</span></td>
+                <td className="px-4 py-2.5 text-right">
+                  <button onClick={async () => { if (!window.confirm(`Dezaktywowa\u0107 punkt ${l.id}? Zniknie z mapy i naliczen od nast\u0119pnego okresu.`)) return; try { await api(`/api/admin/locations/${l.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deactivate: true }) }); load(); } catch (e: any) { window.alert(e.message); } }} className="text-xs text-red-600 hover:underline">dezaktywuj</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function LocationForm({ nextId, orgs, onSaved }: { nextId: string; orgs: any[]; onSaved: () => void }) {
+  const [id, setId] = useState(nextId);
+  const [address, setAddress] = useState("");
+  const [district, setDistrict] = useState("");
+  const [investorOrgId, setInvestorOrgId] = useState("");
+  const [rent, setRent] = useState("");
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [geoBusy, setGeoBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const divRef = useRef<any>(null);
+  useEffect(() => {
+    const L = (window as any).L;
+    if (!divRef.current || mapRef.current || !L) return;
+    const m = L.map(divRef.current).setView([52.2297, 21.0122], 11);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "\u00a9 OpenStreetMap" }).addTo(m);
+    m.on("click", (e: any) => { setLat(e.latlng.lat); setLng(e.latlng.lng); });
+    mapRef.current = m;
+    setTimeout(() => m.invalidateSize(), 100);
+    return () => { m.remove(); mapRef.current = null; markerRef.current = null; };
+  }, []);
+  useEffect(() => {
+    const L = (window as any).L;
+    if (!mapRef.current || lat == null || lng == null || !L) return;
+    if (markerRef.current) markerRef.current.setLatLng([lat, lng]);
+    else {
+      markerRef.current = L.marker([lat, lng], { draggable: true }).addTo(mapRef.current);
+      markerRef.current.on("dragend", () => { const p = markerRef.current.getLatLng(); setLat(p.lat); setLng(p.lng); });
+    }
+    mapRef.current.setView([lat, lng], Math.max(mapRef.current.getZoom(), 14));
+  }, [lat, lng]);
+  const geocode = async () => {
+    if (address.trim().length < 5) { setMsg("Wpisz najpierw adres (ulica, numer, miasto)."); return; }
+    setGeoBusy(true); setMsg("");
+    try {
+      const q = encodeURIComponent(address + ", Polska");
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=pl&limit=1&q=${q}`, { headers: { Accept: "application/json" } });
+      const js = await res.json();
+      if (!js.length) setMsg("Nie znaleziono adresu \u2014 ustaw pinezk\u0119 klikaj\u0105c na mapie.");
+      else { setLat(Number(js[0].lat)); setLng(Number(js[0].lon)); setMsg("Znaleziono: " + js[0].display_name); }
+    } catch { setMsg("Geokodowanie chwilowo niedost\u0119pne \u2014 ustaw pinezk\u0119 klikaj\u0105c na mapie."); }
+    setGeoBusy(false);
+  };
+  const submit = async (force: boolean) => {
+    setBusy(true); setMsg("");
+    try {
+      await api("/api/admin/locations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, address, district: district || null, investorOrgId: investorOrgId || null, monthlyRentGrosze: rent ? Math.round(parseFloat(rent.replace(",", ".")) * 100) : null, lat, lng, force }) });
+      onSaved();
+    } catch (e: any) {
+      const m = String(e.message);
+      if (m.startsWith("BLISKO:")) {
+        if (window.confirm(m + " Doda\u0107 mimo to?")) { await submit(true); return; }
+      } else setMsg(m);
+    }
+    setBusy(false);
+  };
+  const inp = "w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/40";
+  return (
+    <div className="bg-white rounded-md border border-gray-200 border-t-4 border-t-brand-blue p-5 fade-in">
+      <h4 className="font-heading font-bold text-brand-navy mb-4">Nowy punkt zbi\u00f3rki</h4>
+      <div className="grid lg:grid-cols-2 gap-6">
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="text-xs font-semibold text-gray-500 uppercase">Identyfikator</label><input className={inp} value={id} onChange={(e) => setId(e.target.value.toUpperCase())} /></div>
+            <div><label className="text-xs font-semibold text-gray-500 uppercase">Dzielnica / gmina</label><input className={inp} value={district} onChange={(e) => setDistrict(e.target.value)} placeholder="np. Mokot\u00f3w" /></div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase">Adres</label>
+            <div className="flex gap-2">
+              <input className={inp} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="ul. Pu\u0142awska 12, Warszawa" />
+              <button onClick={geocode} disabled={geoBusy} className="px-3 py-2 bg-brand-blue text-white text-sm rounded font-medium hover:bg-brand-bluedark disabled:opacity-50 shrink-0">{geoBusy ? "Szukam..." : "Znajd\u017a na mapie"}</button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase">Inwestor</label>
+              <select className={inp} value={investorOrgId} onChange={(e) => setInvestorOrgId(e.target.value)}>
+                <option value="">\u2014 nieprzypisany \u2014</option>
+                {orgs.map((o: any) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            </div>
+            <div><label className="text-xs font-semibold text-gray-500 uppercase">Czynsz najmu (z\u0142/mc)</label><input className={inp} value={rent} onChange={(e) => setRent(e.target.value)} placeholder="np. 500" /></div>
+          </div>
+          <div className="text-xs text-gray-500">
+            Wsp\u00f3\u0142rz\u0119dne: {lat != null && lng != null ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : "brak \u2014 u\u017cyj \u201eZnajd\u017a na mapie\u201d lub kliknij na map\u0119"}
+          </div>
+          {msg && <div className="text-xs bg-brand-bluelight text-brand-bluedark rounded p-2.5">{msg}</div>}
+          <button onClick={() => submit(false)} disabled={busy} className="px-5 py-2.5 bg-brand-blue text-white rounded text-sm font-semibold hover:bg-brand-bluedark disabled:opacity-50">{busy ? "Zapisywanie..." : "Zapisz punkt"}</button>
+        </div>
+        <div>
+          <div ref={divRef} className="h-72 rounded border border-gray-200 z-0" />
+          <div className="text-[11px] text-gray-400 mt-1">Kliknij na map\u0119 lub przeci\u0105gnij pinezk\u0119, by skorygowa\u0107 po\u0142o\u017cenie.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MasterStawki() {
+  const [data, setData] = useState<any>(null);
+  const [err, setErr] = useState("");
+  const [form, setForm] = useState<any>({ contractId: "", fraction: "SERVICE", rateValue: "", validFrom: new Date().toISOString().slice(0, 10), description: "" });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const load = useCallback(() => { api("/api/admin/rate-cards").then(setData).catch((e) => setErr(e.message)); }, []);
+  useEffect(() => { load(); }, [load]);
+  if (err) return <ErrorBox message={err} />;
+  if (!data) return <Loading />;
+  const FR: any = { LEASE: "Rata leasingu", SERVICE: "Serwis", ELECTRICITY: "Energia (pr\u0105d)", PET: "PET", ALU: "ALU", GLASS: "Szk\u0142o" };
+  const submit = async () => {
+    if (!form.contractId || !form.rateValue) { setMsg("Wybierz kontrakt i podaj stawk\u0119."); return; }
+    setBusy(true); setMsg("");
+    try {
+      await api("/api/admin/rate-cards", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contractId: Number(form.contractId), fraction: form.fraction, collectionModel: "monthly_fixed", packagingType: "n/a", rateValue: parseFloat(String(form.rateValue).replace(",", ".")), rateUnit: "PLN_PER_POINT_MONTH", validFrom: form.validFrom, description: form.description || null }) });
+      setMsg("Zapisano now\u0105 wersj\u0119 stawki. Poprzednia zosta\u0142a zamkni\u0119ta \u2014 naliczenia historyczne pozostaj\u0105 bez zmian.");
+      setForm({ ...form, rateValue: "", description: "" });
+      load();
+    } catch (e: any) { setMsg("B\u0142\u0105d: " + e.message); }
+    setBusy(false);
+  };
+  const inp = "w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/40";
+  return (
+    <div className="space-y-4 fade-in">
+      <div>
+        <h3 className="font-heading text-lg font-bold text-brand-navy">Stawki umowne (rate cards)</h3>
+        <p className="text-xs text-gray-500">Zero stawek w kodzie \u2014 ka\u017cda op\u0142ata (leasing, serwis, energia) to wiersz tutaj. Zmiana stawki tworzy now\u0105 wersj\u0119; przeliczenia bior\u0105 stawk\u0119 z daty zdarzenia.</p>
+      </div>
+      <div className="bg-white rounded-md border border-gray-200 border-t-4 border-t-brand-blue p-5">
+        <h4 className="font-heading font-bold text-brand-navy mb-3">Nowa wersja stawki</h4>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+          <div className="lg:col-span-2"><label className="text-xs font-semibold text-gray-500 uppercase">Kontrakt</label>
+            <select className={inp} value={form.contractId} onChange={(e) => setForm({ ...form, contractId: e.target.value })}>
+              <option value="">\u2014 wybierz \u2014</option>
+              {data.contracts.map((ct: any) => <option key={ct.id} value={ct.id}>#{ct.id} {ct.type} \u00b7 {ct.party_a} \u2192 {ct.party_b}</option>)}
+            </select>
+          </div>
+          <div><label className="text-xs font-semibold text-gray-500 uppercase">Rodzaj op\u0142aty</label>
+            <select className={inp} value={form.fraction} onChange={(e) => setForm({ ...form, fraction: e.target.value })}>
+              {Object.keys(FR).map((k) => <option key={k} value={k}>{FR[k]}</option>)}
+            </select>
+          </div>
+          <div><label className="text-xs font-semibold text-gray-500 uppercase">Stawka (z\u0142/pkt/mc)</label><input className={inp} value={form.rateValue} onChange={(e) => setForm({ ...form, rateValue: e.target.value })} placeholder="np. 45" /></div>
+          <div><label className="text-xs font-semibold text-gray-500 uppercase">Obowi\u0105zuje od</label><input type="date" className={inp} value={form.validFrom} onChange={(e) => setForm({ ...form, validFrom: e.target.value })} /></div>
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <input className={inp + " max-w-md"} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Opis (opcjonalnie), np. podwy\u017cka taryfy energii od IX 2026" />
+          <button onClick={submit} disabled={busy} className="px-5 py-2.5 bg-brand-blue text-white rounded text-sm font-semibold hover:bg-brand-bluedark disabled:opacity-50 shrink-0">{busy ? "Zapisywanie..." : "Zapisz stawk\u0119"}</button>
+        </div>
+        {msg && <div className="mt-3 text-xs bg-brand-bluelight text-brand-bluedark rounded p-2.5">{msg}</div>}
+      </div>
+      <div className="bg-white rounded-md border border-gray-200 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead><tr className="border-b border-gray-200 text-left text-xs text-gray-500 uppercase">
+            <th className="px-4 py-2.5">Kontrakt</th><th className="px-4 py-2.5">Rodzaj</th><th className="px-4 py-2.5 text-right">Stawka</th><th className="px-4 py-2.5">Jednostka</th><th className="px-4 py-2.5">Od</th><th className="px-4 py-2.5">Do</th><th className="px-4 py-2.5">Opis</th>
+          </tr></thead>
+          <tbody>
+            {data.rateCards.map((r: any) => (
+              <tr key={r.id} className={`border-b border-gray-100 ${r.valid_to == null ? "" : "text-gray-400"}`}>
+                <td className="px-4 py-2.5 text-xs">#{r.contract_id} {r.contract_type} \u00b7 {r.party_b}</td>
+                <td className="px-4 py-2.5">{FR[r.fraction] ?? r.fraction}{r.valid_to == null && <span className="ml-2 px-1.5 py-0.5 bg-brand-bluelight text-brand-bluedark text-[10px] rounded font-bold uppercase">aktualna</span>}</td>
+                <td className="px-4 py-2.5 text-right font-semibold tabular-nums">{Number(r.rate_value).toLocaleString("pl-PL")} {r.currency}</td>
+                <td className="px-4 py-2.5 text-xs text-gray-500">{r.rate_unit === "PLN_PER_POINT_MONTH" ? "za punkt / mc" : r.rate_unit}</td>
+                <td className="px-4 py-2.5 text-xs">{fmtDate(r.valid_from)}</td>
+                <td className="px-4 py-2.5 text-xs">{r.valid_to ? fmtDate(r.valid_to) : "\u2014"}</td>
+                <td className="px-4 py-2.5 text-xs text-gray-500">{r.description ?? ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
