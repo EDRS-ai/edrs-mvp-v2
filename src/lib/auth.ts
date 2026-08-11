@@ -107,8 +107,15 @@ export async function resolveSession(c: any): Promise<AppUser | null> {
     c.env.sql.exec("DELETE FROM sessions WHERE token = ?", [token]);
     return null;
   }
-  // Reset idle clock on every authenticated request.
-  c.env.sql.exec("UPDATE sessions SET last_activity_at = ? WHERE token = ?", [now, token]);
+  // Reset idle clock on every authenticated request — THROTTLED to 60 s.
+  // PROMPT 7: SSE reconnect cadence to 3 s means one open tab = ~20 writes/min
+  // bez throttling. 60 s granularność nie zmienia 12 h idle timeout (ważne: 60s
+  // < 12h, więc żadna sesja nie wygasa przez throttle). Throttle jest tutaj,
+  // a nie w handlerze, bo wszystkie authenticated requesty przechodzą przez
+  // resolveSession() — jeden punkt kontrolny.
+  if (now - r.last_activity_at > 60_000) {
+    c.env.sql.exec("UPDATE sessions SET last_activity_at = ? WHERE token = ?", [now, token]);
+  }
   return {
     id: r.id,
     email: r.email,

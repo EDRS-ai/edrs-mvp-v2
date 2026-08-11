@@ -254,10 +254,14 @@ export function executeDefaultAction(env: any, disputeId: number, actorId: numbe
     [d.reconciliation_id]
   );
 
-  // Log event
+  // Log event — PROMPT 7 (H1): dopisz point_id (scope_ref) żeby mapa live widziała spory.
+  const daScope = env.sql.query<{ scope_ref: string; delta_pct: number }>(
+    "SELECT scope_ref, delta_pct FROM reconciliations WHERE id = ?",
+    [d.reconciliation_id]
+  )[0];
   env.sql.exec(
-    "INSERT INTO event_log (event_type, payload_json, actor_id, created_at) VALUES ('dispute_default_action', ?, ?, ?)",
-    [JSON.stringify({ disputeId, newState, reconciliationId: d.reconciliation_id, message: "Akcja domyślna: automatyczne zgłoszenie zastrzeżenia po upływie terminu" }), actorId, now]
+    "INSERT INTO event_log (point_id, event_type, payload_json, actor_id, created_at) VALUES (?, 'dispute_default_action', ?, ?, ?)",
+    [daScope?.scope_ref ?? null, JSON.stringify({ disputeId, newState, reconciliationId: d.reconciliation_id, deltaPct: daScope?.delta_pct ?? null, message: "Akcja domyślna: automatyczne zgłoszenie zastrzeżenia po upływie terminu" }), actorId, now]
   );
 
   return { ok: true, action: newState };
@@ -281,10 +285,15 @@ export function createDisputeFromReconciliation(
 
   const disputeId = Number(env.sql.query<{ id: number }>("SELECT last_insert_rowid() AS id")[0].id);
 
-  // Log event
+  // Log event — PROMPT 7 (H1): point_id (scope_ref) + deltaPct + disputedAmountGrosze + alertLevel,
+  // żeby real dispute pokazywał pulse marker na mapie live (wcześniej payload bez point_id był dropowany).
+  const dcScope = env.sql.query<{ scope_ref: string; delta_pct: number }>(
+    "SELECT scope_ref, delta_pct FROM reconciliations WHERE id = ?",
+    [reconciliationId]
+  )[0];
   env.sql.exec(
-    "INSERT INTO event_log (event_type, payload_json, created_at) VALUES ('dispute_created', ?, ?)",
-    [JSON.stringify({ disputeId, reconciliationId, dueAt: dueAt.toISOString(), state: "INQUIRY_EVIDENCE_REQUIRED" }), now]
+    "INSERT INTO event_log (point_id, event_type, payload_json, created_at) VALUES (?, 'dispute_created', ?, ?)",
+    [dcScope?.scope_ref ?? null, JSON.stringify({ disputeId, reconciliationId, dueAt: dueAt.toISOString(), state: "INQUIRY_EVIDENCE_REQUIRED", deltaPct: dcScope?.delta_pct ?? null, disputedAmountGrosze, alertLevel: "T-3" }), now]
   );
 
   return { ok: true, disputeId };
@@ -324,10 +333,14 @@ export function transitionDisputeState(
     [newState, now, evidenceJson ?? null, disputeId]
   );
 
-  // Log event
+  // Log event — PROMPT 7 (H1): point_id przez join disputes→reconciliations.
+  const tsScope = env.sql.query<{ scope_ref: string }>(
+    "SELECT r.scope_ref FROM disputes d JOIN reconciliations r ON r.id = d.reconciliation_id WHERE d.id = ?",
+    [disputeId]
+  )[0];
   env.sql.exec(
-    "INSERT INTO event_log (event_type, payload_json, actor_id, created_at) VALUES ('dispute_state_transition', ?, ?, ?)",
-    [JSON.stringify({ disputeId, from: currentState, to: newState }), actorId, now]
+    "INSERT INTO event_log (point_id, event_type, payload_json, actor_id, created_at) VALUES (?, 'dispute_state_transition', ?, ?, ?)",
+    [tsScope?.scope_ref ?? null, JSON.stringify({ disputeId, from: currentState, to: newState }), actorId, now]
   );
 
   // Jeśli to stan terminalny (WON/LOST/ACCEPTED/INQUIRY_CLOSED), zaktualizuj rekoncyliację

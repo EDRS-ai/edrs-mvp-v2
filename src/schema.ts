@@ -201,6 +201,11 @@ export const ledgerEntries = sqliteTable("ledger_entries", {
   entryTypeIdx: index("ledger_entries_entry_type_idx").on(t.entryType),
   endToEndIdx: uniqueIndex("ledger_entries_end_to_end_idx").on(t.endToEndId),
   hashChainIdx: index("ledger_entries_hash_idx").on(t.cycleId, t.id),
+  // PROMPT 6 — indexes for 4000 pkt performance
+  ledgerCycleTypeIdx: index("ledger_entries_cycle_type_idx").on(t.cycleId, t.entryType),
+  ledgerLocationCreatedIdx: index("ledger_entries_location_created_idx").on(t.locationId, t.createdAt),
+  ledgerEntryHashIdx: index("ledger_entries_entry_hash_idx").on(t.entryHash),
+  ledgerPrevHashIdx: index("ledger_entries_prev_hash_idx").on(t.prevHash),
 }));
 
 // ─── PROMPT 5: operator_terms (terminy kaucyjne per operator) ──────────────

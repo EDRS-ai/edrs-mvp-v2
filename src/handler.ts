@@ -18,8 +18,25 @@ import { ensureSeeded, reseed } from "./lib/seed";
 import { parseCsv, validateCredits, validateReceipts, validateCollections } from "./lib/csv";
 import { runSettlementEngine, approveCycle, reopenCycle, getLedgerForCycle, insertLedgerEntry } from "./lib/settlement";
 import { runFullReconciliation, transitionDisputeState, executeDefaultAction, getAlertLevel, isOverdue, businessDaysBetween } from "./lib/reconciliation";
+import { buildEventStream, mapSnapshot, parseCats, resolveCursor, emitEvent as emitRealtimeEvent, emitLocationUpdate } from "./lib/realtime";
 
 type Bindings = { sql: any; websocket: any; ctx: AppCtx };
+
+
+// PROMPT 6.4 — pagination helpers (limit/offset/sort + standard {items,total,hasMore} response).
+// Backward-compat: stare endpointy bez ?limit=&offset=&sort= dalej zwracają pełne listy.
+function parsePagination(c: any): { limit: number; offset: number; sort: string | null } {
+  const rawLimit = parseInt(c.req.query("limit") ?? "50", 10);
+  const rawOffset = parseInt(c.req.query("offset") ?? "0", 10);
+  return {
+    limit: Math.min(Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : 50, 200),
+    offset: Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0,
+    sort: c.req.query("sort") || null,
+  };
+}
+function paginatedResponse(items: any[], total: number, limit: number, offset: number) {
+  return { items, total, limit, offset, hasMore: offset + items.length < total };
+}
 
 // NOTE: PROMPT 0 scope = auth fix only. These pricing constants will move to
 // rate_cards in PROMPT 1. Do not touch in this commit.
@@ -38,6 +55,9 @@ export function createApp() {
   }
 
   app.use("/api/*", async (c, next) => {
+    // PROMPT 7: bypass ensureSeeded na hot path SSE. Co 3 s EventSource reconnect
+    // odpalałby 7 backfill probes per otwarta zakładka — czysty facet load dla niczego.
+    if (c.req.path === "/api/admin/events/stream") return next();
     await ensureSeeded(c.env);
     await next();
   });
@@ -143,6 +163,7 @@ export function createApp() {
   const requireMaster = requireRole("master");
   const requireInvestor = requireRole("investor");
   const requireDriver = requireRole("driver");
+  const requireMasterOrInvestor = requireRole("master", "investor");
 
   app.get("/api/admin/overview", requireMaster, async (c) => {
     const investorCount = Number(c.env.sql.query<{ n: number }>("SELECT COUNT(*) AS n FROM investors WHERE status='active'")[0].n);
@@ -380,8 +401,32 @@ export function createApp() {
       c.env.sql.exec("UPDATE settlement_cycles SET status = 'draft' WHERE id = ?", [id]);
     }
 
-    const result = runSettlementEngine(c.env, id, cycle);
+    const result = await runSettlementEngine(c.env, id, cycle);
     logEvent(c.env, { cycleId: id, eventType: "settlement_engine_run", payload: { entriesCreated: result.entriesCreated, partySummary: result.partySummary, errors: result.errors }, actorId: me.id });
+    // PROMPT 7: per-party emit "cycle.credit_posted" — toast na mapie gdy engine
+    // rozlicza kaucję. Defensive shape: partySummary może być array albo object.
+    try {
+      const ps: any = (result as any)?.partySummary;
+      if (ps && typeof ps === "object") {
+        const entries: any[] = Array.isArray(ps)
+          ? ps
+          : Object.entries(ps).map(([party, v]: any) => ({ party, ...(v as any) }));
+        for (const p of entries) {
+          emitRealtimeEvent(c.env, {
+            eventType: "cycle.credit_posted",
+            cycleId: id,
+            payload: {
+              party: String(p.orgName ?? p.party ?? p.name ?? "—"),
+              amountNetGrosze: Number(p.netGrosze ?? p.amountNet ?? 0),
+              cycleLabel: cycle.label,
+            },
+            actorId: me.id,
+          });
+        }
+      }
+    } catch (e: any) {
+      console.error("[run-engine] credit emit failed:", e?.message ?? String(e));
+    }
     return c.json({ ok: true, ...result });
   });
 
@@ -486,6 +531,146 @@ export function createApp() {
     );
     return c.json({ events: rows });
   });
+
+  // ─── PROMPT 7: Realtime (SSE) ───────────────────────────────────────────────
+  // Micro-burst SSE: jedno połączenie = jeden query + flush + close. EventSource
+  // sam się reconnectuje po `retry: 3000` ms z Last-Event-ID. Bez setTimeout/setInterval
+  // (banned w runtime, patrz references/handler-runtime.md).
+  // H2: requireMaster — mapSnapshot i queryEvents są nieskopowane per investor_org_id,
+  // więc investor widziałby cudze kredyty i spory. Scoping inwestorów = PROMPT 8.
+  app.get("/api/admin/events/stream", requireMaster, async (c) => {
+    try {
+      const cats = parseCats(c.req.query("type"));
+      const replayRaw = parseInt(c.req.query("replay") ?? "0", 10);
+      const replay = Number.isFinite(replayRaw) && replayRaw > 0 ? Math.min(replayRaw, 500) : 0;
+      const cursor = resolveCursor(c.env, {
+        lastEventId: c.req.header("last-event-id"),
+        sinceId: c.req.query("sinceId"),
+        since: c.req.query("since"),
+      });
+      return buildEventStream(c.env, { cursor, cats, replay });
+    } catch (e: any) {
+      // L7: ensureSeeded bypass znaczy że event_log może nie istnieć na świeżym DO.
+      console.error("[events/stream]", e?.message ?? String(e));
+      return c.json({ error: "stream_unavailable", message: e?.message }, 503);
+    }
+  });
+
+  // Snapshot mapy — jeden GET zwraca 2000+ pkt + cursor, potem tylko delty przez SSE.
+  app.get("/api/admin/map/snapshot", requireMaster, async (c) => {
+    return c.json(mapSnapshot(c.env));
+  });
+
+  // DEV: seed syntetycznych lokalizacji rozsianych po 16 miastach (load test 2000+ markerów).
+  app.post("/api/admin/dev/seed-locations", requireMaster, async (c) => {
+    const body = await c.req.json<{ count?: number }>().catch(() => ({} as any));
+    const target = Math.min(Math.max(Number(body.count ?? 2000), 1), 5000);
+    const have = Number(
+      c.env.sql.query<{ n: number }>("SELECT COUNT(*) AS n FROM locations WHERE id LIKE 'SYN-%'")[0].n
+    );
+    if (have >= target) {
+      const total = Number(c.env.sql.query<{ n: number }>("SELECT COUNT(*) AS n FROM locations")[0].n);
+      return c.json({ ok: true, created: 0, total, note: "already_seeded" });
+    }
+    const CITIES = [
+      ["Warszawa", 52.2297, 21.0122], ["Kraków", 50.0647, 19.9450], ["Łódź", 51.7592, 19.4560],
+      ["Wrocław", 51.1079, 17.0385], ["Poznań", 52.4064, 16.9252], ["Gdańsk", 54.3520, 18.6466],
+      ["Szczecin", 53.4285, 14.5528], ["Bydgoszcz", 53.1235, 18.0084], ["Lublin", 51.2465, 22.5684],
+      ["Katowice", 50.2649, 19.0238], ["Białystok", 53.1325, 23.1688], ["Rzeszów", 50.0412, 21.9991],
+      ["Olsztyn", 53.7784, 20.4801], ["Kielce", 50.8661, 20.6286], ["Opole", 50.6751, 17.9213],
+      ["Zielona Góra", 51.9356, 15.5062],
+    ] as const;
+    const now = Date.now();
+    // M6: bounded batch — max 500 insertów per call (skill rule: resumable batches).
+    // Klient woła ponownie aż remaining === 0.
+    const batchEnd = Math.min(target, have + 500);
+    // DO SQLite zakazuje SQL BEGIN TRANSACTION — atomowość per request daje auto-coalescing DO.
+    // INSERT OR IGNORE + licznik z COUNT czynią seed resumable po częściowym failu.
+    try {
+      for (let i = have; i < batchEnd; i++) {
+        const [city, clat, clng] = CITIES[i % CITIES.length];
+        const lat = (clat as number) + (Math.random() - 0.5) * 0.28;
+        const lng = (clng as number) + (Math.random() - 0.5) * 0.42;
+        const fill = Math.floor(Math.random() * 100);
+        const id = `SYN-${String(i + 1).padStart(4, "0")}`;
+        c.env.sql.exec(
+          "INSERT OR IGNORE INTO locations (id, address, district, lat, lng, region_id, investor_org_id, fill_level, status, monthly_packages, created_at, updated_at, version) " +
+            "VALUES (?, ?, ?, ?, ?, 1, 2, ?, 'online', ?, ?, ?, 1)",
+          [id, `${city}, punkt syntetyczny ${i + 1}`, city, lat, lng, fill, 1000 + Math.floor(Math.random() * 6000), now, now]
+        );
+      }
+    } catch (e: any) {
+      console.error("[dev/seed-locations]", e?.message ?? String(e));
+      return c.json({ error: "seed_failed", message: e?.message }, 500);
+    }
+    // L8: uczciwy licznik — realna delta z COUNT, nie licznik pętli (INSERT OR IGNORE może pominąć).
+    const nowHave = Number(
+      c.env.sql.query<{ n: number }>("SELECT COUNT(*) AS n FROM locations WHERE id LIKE 'SYN-%'")[0].n
+    );
+    const total = Number(c.env.sql.query<{ n: number }>("SELECT COUNT(*) AS n FROM locations")[0].n);
+    const remaining = Math.max(0, target - nowHave);
+    return c.json({ ok: true, created: nowHave - have, total, remaining });
+  });
+
+  // DEV: M7 — czyszczenie syntetycznych punktów (SYN-%) zanim zanieczyszczą real engine runs.
+  app.post("/api/admin/dev/purge-locations", requireMaster, async (c) => {
+    const before = Number(
+      c.env.sql.query<{ n: number }>("SELECT COUNT(*) AS n FROM locations WHERE id LIKE 'SYN-%'")[0].n
+    );
+    c.env.sql.exec("DELETE FROM locations WHERE id LIKE 'SYN-%'");
+    c.env.sql.exec("DELETE FROM event_log WHERE point_id LIKE 'SYN-%'");
+    return c.json({ ok: true, purged: before });
+  });
+
+  // DEV: symulator ruchu — podnosi fill na N losowych punktach + opcjonalnie zdarzenia cycle/dispute.
+  app.post("/api/admin/dev/simulate", requireMaster, async (c) => {
+    const me = c.get(APP_USER_KEY);
+    const b = await c.req.json<{ locations?: number; credits?: number; disputes?: number }>().catch(() => ({} as any));
+    const nLoc = Math.min(Math.max(Number(b.locations ?? 25), 0), 200);
+    const nCred = Math.min(Math.max(Number(b.credits ?? 2), 0), 20);
+    const nDisp = Math.min(Math.max(Number(b.disputes ?? 1), 0), 20);
+    const now = Date.now();
+    const picks = c.env.sql.query<any>(
+      "SELECT id, fill_level FROM locations WHERE deleted_at IS NULL AND lat IS NOT NULL ORDER BY RANDOM() LIMIT ?",
+      [nLoc]
+    );
+    for (const p of picks) {
+      const next = Math.min(100, Number(p.fill_level) + 3 + Math.floor(Math.random() * 25));
+      c.env.sql.exec("UPDATE locations SET fill_level = ?, updated_at = ? WHERE id = ?", [next, now, p.id]);
+      emitLocationUpdate(c.env, p.id, { simulated: true });
+    }
+    for (let i = 0; i < nCred; i++) {
+      const p = picks[i % Math.max(picks.length, 1)];
+      const amountNet = 50000 + Math.floor(Math.random() * 450000);
+      emitRealtimeEvent(c.env, {
+        eventType: "cycle.credit_posted",
+        pointId: p?.id ?? null,
+        payload: {
+          amountNetGrosze: amountNet,
+          packages: 400 + Math.floor(Math.random() * 3000),
+          party: "Operator kaucyjny",
+          simulated: true,
+        },
+        actorId: me.id,
+      });
+    }
+    for (let i = 0; i < nDisp; i++) {
+      const p = picks[(i + 3) % Math.max(picks.length, 1)];
+      emitRealtimeEvent(c.env, {
+        eventType: "dispute_created",
+        pointId: p?.id ?? null,
+        payload: {
+          deltaPct: 2 + Math.random() * 8,
+          alertLevel: i % 2 === 0 ? "T-3" : "T-1",
+          disputedAmountGrosze: 20000 + Math.floor(Math.random() * 180000),
+          simulated: true,
+        },
+        actorId: me.id,
+      });
+    }
+    return c.json({ ok: true, locations: picks.length, credits: nCred, disputes: nDisp });
+  });
+
 
   app.get("/api/admin/csv/profiles", requireMaster, async (c) => {
     // List saved mapping profiles
@@ -770,7 +955,8 @@ export function createApp() {
     let skippedDuplicates = 0;
     const correlationId = newToken(16);
 
-    c.env.sql.exec("BEGIN TRANSACTION");
+    // DO SQLite zakazuje SQL BEGIN TRANSACTION (use state.storage.transaction()).
+    // Atomowość per request daje auto-coalescing DO; idempotency keys czynią import resumable po częściowym failu.
     try {
       for (const row of rows) {
         let eventType = "";
@@ -822,9 +1008,7 @@ export function createApp() {
         }
         imported++;
       }
-      c.env.sql.exec("COMMIT");
     } catch (e: any) {
-      c.env.sql.exec("ROLLBACK");
       return c.json({ error: "database_transaction_failed", message: e.message }, 500);
     }
 
@@ -1036,6 +1220,9 @@ export function createApp() {
       [pointId, me.driverId, packages, weightKg ?? null, now, now, now]
     );
     c.env.sql.exec("UPDATE points SET fill_level = 5, last_collection_at = ? WHERE id = ?", [now, pointId]);
+    // PROMPT 7: zapis do locations (mapa live czyta stąd, nie z points) + emit eventu na SSE.
+    c.env.sql.exec("UPDATE locations SET fill_level = 5, last_collection_at = ?, updated_at = ? WHERE id = ?", [now, now, pointId]);
+    emitLocationUpdate(c.env, pointId, { reason: "collection", packages });
     return c.json({ ok: true });
   });
 

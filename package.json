@@ -2,6 +2,7 @@
   "dependencies": {
     "hono": "^4",
     "drizzle-orm": "^0.44.3",
+    "@neondatabase/serverless": "^0.9.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

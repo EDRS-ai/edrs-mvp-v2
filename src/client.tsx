@@ -3,7 +3,7 @@
 // All fetch calls now use `credentials: "include"` so the httpOnly cookie is sent.
 // Body of login/signup responses no longer store token client-side.
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createRoot } from "react-dom/client";
 
 const fmt = (grosze: number) =>
@@ -351,6 +351,7 @@ function MasterApp({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const nav = [
     { id: "dashboard", label: "Dashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
+    { id: "mapa", label: "Mapa live", icon: "M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" },
     { id: "cycles", label: "Rozliczenia", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" },
     { id: "disputes", label: "Spory", icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" },
     { id: "import", label: "Import CSV", icon: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" },
@@ -369,6 +370,7 @@ function MasterApp({ user, onLogout }: { user: User; onLogout: () => void }) {
     <NavShell title={nav.find((n) => n.id === view)?.label ?? ""} nav={nav} activeView={view} setView={setView} user={user} onLogout={onLogout}>
       {error && <ErrorBox message={error} />}
       {view === "dashboard" && <MasterDashboard overview={overview} />}
+      {view === "mapa" && <MasterMapaLive user={user} />}
       {view === "cycles" && <MasterCycles cycles={cycles} onReload={reload} />}
       {view === "disputes" && <MasterDisputes />}
       {view === "import" && <MasterCsvImport cycles={cycles} onReload={reload} />}
@@ -1257,6 +1259,372 @@ function MasterEvents() {
     </div>
   );
 }
+
+// ─── PROMPT 7: Mapa live (Leaflet + SSE) ───────────────────────────────────────
+declare const L: any;
+
+// M2: XSS escape — addr/district/party przychodzą z CSV importów (operator-supplied).
+const esc = (s: any) =>
+  String(s ?? "").replace(/[&<>"']/g, (m) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]!)
+  );
+
+// Progi koloru fill_% — canvas circleMarker per punkt (nie markercluster —
+// kolor per-punkt jest clou widoku). Markercluster wyłącza tę informację.
+const FILL_TIERS = [
+  { max: 30,  color: "#16a34a", label: "< 30% (OK)" },
+  { max: 70,  color: "#eab308", label: "30–70%" },
+  { max: 95,  color: "#f97316", label: "70–95%" },
+  { max: 101, color: "#dc2626", label: "> 95% (alert)" },
+];
+const fillColor = (pct: number) =>
+  (FILL_TIERS.find((t) => pct < t.max) ?? FILL_TIERS[3]).color;
+
+// Hook EventSource z auto-reconnect + dedupe po SSE `id`. Cursor transportowany
+// przez Last-Event-ID (server w realtime.ts czyta z `event_log.id`).
+// M3: `sinceId` — cursor ze snapshotu; pierwszy connect zaczyna od niego (bez luki
+// między snapshot query a otwarciem streamu). Reconnecty nadpisują go Last-Event-ID.
+function useEventStream(
+  enabled: boolean,
+  types: string,
+  sinceId: number | null,
+  onEvent: (e: any) => void
+) {
+  const [state, setState] = useState<"connecting" | "live" | "error">("connecting");
+  const [lastAt, setLastAt] = useState<number | null>(null);
+  const cbRef = useRef(onEvent); cbRef.current = onEvent;
+  useEffect(() => {
+    if (!enabled || sinceId === null) return;
+    const es = new EventSource(
+      `/api/admin/events/stream?type=${encodeURIComponent(types)}&sinceId=${sinceId}`,
+      { withCredentials: true } as any
+    );
+    const seen = new Set<number>();
+    const handle = (ev: MessageEvent) => {
+      try {
+        const d = JSON.parse((ev as any).data);
+        if (typeof d.id === "number") {
+          if (seen.has(d.id)) return;
+          seen.add(d.id);
+          if (seen.size > 4000) seen.clear();
+        }
+        setState("live"); setLastAt(Date.now()); cbRef.current(d);
+      } catch {}
+    };
+    for (const t of ["location", "cycle", "dispute", "message"]) {
+      es.addEventListener(t, handle as any);
+    }
+    es.onopen = () => setState("live");
+    es.onerror = () => setState((s) => (s === "live" ? "live" : "error"));
+    return () => es.close();
+  }, [enabled, types, sinceId]);
+  return { state, lastAt };
+}
+
+function MasterMapaLive({ user }: { user: User }) {
+  const mapRef = useRef<any>(null);
+  const rendererRef = useRef<any>(null); // H3: JEDEN canvas renderer dla 2000+ markerów
+  const markersRef = useRef<Map<string, any>>(new Map());
+  const alertLayerRef = useRef<any>(null);
+  const alertPulsesRef = useRef<any[]>([]); // L4: własna kolejka FIFO zamiast prywatnego _layers
+  const canvasLayerRef = useRef<any>(null);
+  const toastContainerRef = useRef<HTMLDivElement | null>(null);
+  const replayEsRef = useRef<EventSource | null>(null); // M5: handle do cleanup
+  const [stats, setStats] = useState({ points: 0, alerts: 0, changes: 0 });
+  const [filter, setFilter] = useState<"all" | "location" | "cycle" | "dispute">("all");
+  const [paused, setPaused] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [streamCursor, setStreamCursor] = useState<number | null>(null); // M3
+
+  const onEvent = useCallback((d: any) => {
+    if (paused) return;
+    if (d.cat === "location" && d.pointId) {
+      const m = markersRef.current.get(d.pointId);
+      if (m && d.payload?.fillPct !== undefined) {
+        m.setStyle({ fillColor: fillColor(d.payload.fillPct), color: "#fff" });
+        // L3: pełna treść tooltipa (adres + dzielnica zachowane z datasetu markera)
+        const meta = (m as any).__edrsMeta;
+        if (meta) {
+          meta.fill = d.payload.fillPct;
+          m.setTooltipContent(
+            `${esc(meta.id)} · ${esc(meta.district)}<br>${esc(meta.addr)}<br>Zapełnienie: ${esc(meta.fill)}%`
+          );
+        }
+        // L2: licznik zmian tylko gdy marker faktycznie istnieje na mapie
+        setStats((s) => ({ ...s, changes: s.changes + 1 }));
+      }
+    } else if (d.cat === "dispute" && d.pointId && d.type !== "ticket_resolved" && d.type !== "dispute_state_transition") {
+      const m = markersRef.current.get(d.pointId);
+      if (!m || !alertLayerRef.current) return;
+      const latLng = m.getLatLng();
+      const isT1 = d.payload?.alertLevel === "T-1";
+      const pulseIcon = L.divIcon({
+        className: "",
+        html: `<div class="pulse-marker ${isT1 ? "t1" : ""}"></div>`,
+        iconSize: [18, 18],
+      });
+      const pulse = L.marker(latLng, { icon: pulseIcon, interactive: true, zIndexOffset: 1000 })
+        .addTo(alertLayerRef.current);
+      const deltaTxt = d.payload?.deltaPct ? `${Number(d.payload.deltaPct).toFixed(1)}%` : "—";
+      const amtTxt = fmt(d.payload?.disputedAmountGrosze ?? 0);
+      pulse.bindPopup(
+        `<div style="font-size:12px"><b>${esc(d.pointId)}</b><br>Spór: ${esc(deltaTxt)}<br>${esc(amtTxt)} netto<br>Poziom alertu: ${esc(d.payload?.alertLevel ?? "—")}</div>`
+      );
+      // L4: FIFO przez własną tablicę, nie prywatne _layers
+      alertPulsesRef.current.push(pulse);
+      if (alertPulsesRef.current.length > 60) {
+        const oldest = alertPulsesRef.current.shift();
+        try { alertLayerRef.current.removeLayer(oldest); } catch {}
+      }
+      setTimeout(() => {
+        try {
+          alertLayerRef.current?.removeLayer(pulse);
+          const idx = alertPulsesRef.current.indexOf(pulse);
+          if (idx >= 0) alertPulsesRef.current.splice(idx, 1);
+        } catch {}
+      }, 45000);
+      setStats((s) => ({ ...s, alerts: s.alerts + 1 }));
+    } else if (d.cat === "cycle") {
+      const container = toastContainerRef.current;
+      if (container) {
+        // M2: textContent zamiast innerHTML — party pochodzi z payloadu (CSV-supplied org name)
+        const toast = document.createElement("div");
+        toast.className = "toast bg-white border border-gray-200 rounded-lg shadow-md p-3 text-sm";
+        toast.setAttribute("role", "status");
+        const title = document.createElement("div");
+        title.className = "font-semibold text-gray-900";
+        title.textContent = "Kredyt cyklu zaksięgowany";
+        const body = document.createElement("div");
+        body.className = "text-gray-600";
+        body.textContent = `${d.payload?.party ?? "—"} · ${fmt(d.payload?.amountNetGrosze ?? 0)} netto`;
+        toast.appendChild(title);
+        toast.appendChild(body);
+        toast.onclick = () => { try { toast.remove(); } catch {} };
+        container.appendChild(toast);
+        setTimeout(() => {
+          toast.classList.add("leaving");
+          setTimeout(() => { try { toast.remove(); } catch {} }, 220);
+        }, 6000);
+        while (container.children.length > 4) {
+          try { container.children[0].remove(); } catch {}
+        }
+      }
+    }
+  }, [paused]);
+
+  const { state: streamState, lastAt } = useEventStream(!paused, filter, streamCursor, onEvent);
+
+  // H3: wspólna funkcja renderująca snapshot — jeden renderer, tooltip + popup + meta.
+  const renderSnapshot = useCallback((snap: any) => {
+    if (!canvasLayerRef.current || !rendererRef.current) return;
+    canvasLayerRef.current.clearLayers();
+    markersRef.current.clear();
+    for (const row of snap.points as any[][]) {
+      const [id, lat, lng, fill, status, lastColl, addr, district] = row;
+      if (lat == null || lng == null) continue;
+      const m = L.circleMarker([lat, lng], {
+        renderer: rendererRef.current, // H3: JEDEN wspólny canvas
+        radius: 5,
+        weight: 1,
+        color: "#fff",
+        fillColor: fillColor(fill ?? 0),
+        fillOpacity: 0.9,
+      }).addTo(canvasLayerRef.current);
+      (m as any).__edrsMeta = { id, addr: addr ?? "", district: district ?? "", fill: fill ?? 0 };
+      m.bindTooltip(`${esc(id)} · ${esc(district ?? "")}<br>${esc(addr ?? "")}<br>Zapełnienie: ${esc(fill ?? 0)}%`);
+      m.bindPopup(
+        `<div style="font-size:12px"><b>${esc(id)}</b><br>${esc(addr ?? "")}<br>${esc(district ?? "")}<br>Zapełnienie: ${esc(fill ?? 0)}%<br>Ostatni odbiór: ${lastColl ? esc(new Date(lastColl).toLocaleString("pl-PL")) : "—"}<br>Status: ${esc(status ?? "—")}</div>`
+      );
+      markersRef.current.set(id, m);
+    }
+    setStats((s) => ({ ...s, points: markersRef.current.size }));
+    // M3: cursor ze snapshotu → stream zaczyna od niego (bez luki)
+    if (typeof snap.cursor === "number") setStreamCursor(snap.cursor);
+  }, []);
+
+  // Init mapy + snapshot. M4: pełny cleanup w return.
+  useEffect(() => {
+    if (typeof L === "undefined") {
+      setLoadError("Nie udało się wczytać biblioteki Leaflet (CDN).");
+      return;
+    }
+    const node = document.getElementById("edrs-map");
+    if (!node) return;
+    if (!mapRef.current) {
+      const map = L.map(node, {
+        preferCanvas: true,
+        center: [52.0, 19.3],
+        zoom: 6,
+        minZoom: 5,
+        maxZoom: 16,
+        worldCopyJump: false,
+      });
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap",
+        maxZoom: 18,
+      }).addTo(map);
+      map.setMaxBounds([[48.9, 13.9], [55.0, 24.3]]);
+      rendererRef.current = L.canvas({ padding: 0.5 }); // H3
+      canvasLayerRef.current = L.layerGroup().addTo(map);
+      alertLayerRef.current = L.layerGroup().addTo(map);
+      mapRef.current = map;
+    }
+    (async () => {
+      try {
+        const snap: any = await api("/api/admin/map/snapshot");
+        renderSnapshot(snap);
+      } catch (e: any) {
+        setLoadError(e?.message ?? String(e));
+      }
+    })();
+    return () => {
+      // M4: destroy Leaflet + M5: close replay EventSource
+      try { replayEsRef.current?.close(); } catch {}
+      replayEsRef.current = null;
+      try { mapRef.current?.remove(); } catch {}
+      mapRef.current = null;
+      rendererRef.current = null;
+      canvasLayerRef.current = null;
+      alertLayerRef.current = null;
+      alertPulsesRef.current = [];
+      markersRef.current.clear();
+    };
+  }, [renderSnapshot]);
+
+  const refreshSnapshot = async () => {
+    try {
+      const snap: any = await api("/api/admin/map/snapshot");
+      renderSnapshot(snap);
+    } catch (e: any) {
+      setLoadError(e?.message ?? String(e));
+    }
+  };
+
+  const reseed = async () => {
+    try {
+      await api("/api/admin/dev/seed-locations", { method: "POST", body: JSON.stringify({ count: 2000 }) });
+    } catch {}
+    await refreshSnapshot();
+  };
+
+  const simulate = async () => {
+    try {
+      await api("/api/admin/dev/simulate", {
+        method: "POST",
+        body: JSON.stringify({ locations: 40, credits: 2, disputes: 1 }),
+      });
+    } catch {}
+  };
+
+  const replayEvents = () => {
+    // M5: jeden replay naraz, handle w ref, onerror zamyka (bez infinite reconnect)
+    try { replayEsRef.current?.close(); } catch {}
+    const es = new EventSource(
+      `/api/admin/events/stream?replay=50&type=${encodeURIComponent(filter)}`,
+      { withCredentials: true } as any
+    );
+    replayEsRef.current = es;
+    const handle = (ev: MessageEvent) => {
+      if ((ev as any).type === "replay_done") { es.close(); replayEsRef.current = null; return; }
+      try { onEvent(JSON.parse((ev as any).data)); } catch {}
+    };
+    for (const t of ["location", "cycle", "dispute", "replay_done", "message"]) {
+      es.addEventListener(t, handle as any);
+    }
+    es.onerror = () => { es.close(); replayEsRef.current = null; };
+  };
+
+  // L5: paused ma własny stan wizualny — dot nie kłamie że "Na żywo"
+  const statusLabel = paused
+    ? "Wstrzymano"
+    : streamState === "live"
+    ? "Na żywo"
+    : streamState === "connecting"
+    ? "Łączenie…"
+    : "Błąd połączenia";
+
+  return (
+    <div>
+      {/* Header bar */}
+      <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <span className={`live-dot ${!paused && streamState === "live" ? "" : "off"}`}></span>
+          <span className="text-sm font-medium">{statusLabel}</span>
+          <span className="text-xs text-gray-500">
+            {lastAt ? `Ostatnie: ${new Date(lastAt).toLocaleTimeString("pl-PL")} · ` : ""}
+            Punkty: <b>{stats.points}</b> · Alerty: <b>{stats.alerts}</b> · Zmiany: <b>{stats.changes}</b>
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex border border-gray-300 rounded-md overflow-hidden text-xs">
+            {(["all", "location", "cycle", "dispute"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-3 py-1 ${filter === f ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"}`}
+              >
+                {f === "all" ? "Wszystko" : f === "location" ? "Punkty" : f === "cycle" ? "Rozliczenia" : "Spory"}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={refreshSnapshot}
+            className="text-xs px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            Odśwież
+          </button>
+          <button
+            onClick={() => setPaused((p) => !p)}
+            className="text-xs px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            {paused ? "Wznów" : "Pauza"}
+          </button>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-3 text-xs text-gray-600 mb-3 flex-wrap">
+        {FILL_TIERS.map((t) => (
+          <span key={t.label} className="flex items-center gap-1">
+            <span className="w-3 h-3 rounded-full inline-block" style={{ background: t.color }}></span>
+            {t.label}
+          </span>
+        ))}
+      </div>
+
+      {/* Map + empty state */}
+      {loadError && <ErrorBox message={loadError} />}
+      {!loadError && stats.points === 0 && (
+        <div className="text-center text-sm text-gray-500 border border-dashed border-gray-300 rounded-lg p-3 mb-3">
+          Brak punktów z współrzędnymi. Użyj „Zasiej 2000 punktów” w narzędziach demo.
+        </div>
+      )}
+      <div id="edrs-map" style={{ height: "calc(100vh - 240px)", minHeight: 420 }}></div>
+
+      {/* Toast host (PROMPT 7 — fixed bottom-right) */}
+      <div ref={toastContainerRef} className="toast-stack" aria-live="polite"></div>
+
+      {/* Dev tools (master only) */}
+      {user.role === "master" && (
+        <details className="mt-4 bg-white border border-gray-200 rounded-lg p-3 text-sm">
+          <summary className="cursor-pointer font-semibold text-gray-700">Narzędzia demo</summary>
+          <div className="flex gap-2 mt-2 flex-wrap">
+            <button onClick={reseed} className="px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50">
+              Zasiej 2000 punktów
+            </button>
+            <button onClick={simulate} className="px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50">
+              Symuluj ruch
+            </button>
+            <button onClick={replayEvents} className="px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50">
+              Replay 50 zdarzeń
+            </button>
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
 
 function App() {
   const [view, setView] = useState<"landing" | "login" | "app">("landing");

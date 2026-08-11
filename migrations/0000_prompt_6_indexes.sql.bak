@@ -1,0 +1,616 @@
+CREATE TABLE `catalog_overrides` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`ean` text NOT NULL,
+	`scope` text NOT NULL,
+	`scope_id` text,
+	`action` text NOT NULL,
+	`reason` text,
+	`author` text,
+	`valid_from` integer NOT NULL,
+	`valid_to` integer,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`ean`) REFERENCES `packaging_items`(`ean`) ON UPDATE no action ON DELETE no action
+);
+
+--> statement-breakpoint
+CREATE UNIQUE INDEX `catalog_overrides_ean_scope_idx` ON `catalog_overrides` (`ean`,`scope`,`scope_id`);
+--> statement-breakpoint
+CREATE TABLE `catalog_versions` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`source` text NOT NULL,
+	`version` text NOT NULL,
+	`checksum` text,
+	`imported_at` integer NOT NULL,
+	`item_count` integer NOT NULL
+);
+
+--> statement-breakpoint
+CREATE TABLE `collections` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`point_id` text NOT NULL,
+	`driver_id` integer NOT NULL,
+	`status` text DEFAULT 'completed' NOT NULL,
+	`packages` integer,
+	`weight_kg` real,
+	`accepted_at` integer,
+	`collected_at` integer,
+	`cycle_id` integer,
+	`created_at` integer NOT NULL
+);
+
+--> statement-breakpoint
+CREATE INDEX `collections_point_idx` ON `collections` (`point_id`);
+--> statement-breakpoint
+CREATE INDEX `collections_driver_idx` ON `collections` (`driver_id`);
+--> statement-breakpoint
+CREATE INDEX `collections_status_idx` ON `collections` (`status`);
+--> statement-breakpoint
+CREATE INDEX `collections_cycle_idx` ON `collections` (`cycle_id`);
+--> statement-breakpoint
+CREATE TABLE `contracts` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`type` text NOT NULL,
+	`party_a_org_id` integer NOT NULL,
+	`party_b_org_id` integer NOT NULL,
+	`valid_from` integer NOT NULL,
+	`valid_to` integer,
+	`notice_period_days` integer DEFAULT 30 NOT NULL,
+	`file_ref` text,
+	`status` text DEFAULT 'active' NOT NULL,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	`version` integer DEFAULT 1 NOT NULL,
+	`deleted_at` integer,
+	FOREIGN KEY (`party_a_org_id`) REFERENCES `organizations`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`party_b_org_id`) REFERENCES `organizations`(`id`) ON UPDATE no action ON DELETE no action
+);
+
+--> statement-breakpoint
+CREATE INDEX `contracts_party_a_idx` ON `contracts` (`party_a_org_id`);
+--> statement-breakpoint
+CREATE INDEX `contracts_party_b_idx` ON `contracts` (`party_b_org_id`);
+--> statement-breakpoint
+CREATE INDEX `contracts_status_idx` ON `contracts` (`status`);
+--> statement-breakpoint
+CREATE TABLE `device_heartbeats` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`device_id` text NOT NULL,
+	`ts` integer NOT NULL,
+	`online` integer NOT NULL,
+	`fill_pct_json` text,
+	`versions_json` text,
+	`errors_json` text,
+	FOREIGN KEY (`device_id`) REFERENCES `devices`(`id`) ON UPDATE no action ON DELETE no action
+);
+
+--> statement-breakpoint
+CREATE INDEX `device_heartbeats_device_idx` ON `device_heartbeats` (`device_id`);
+--> statement-breakpoint
+CREATE INDEX `device_heartbeats_ts_idx` ON `device_heartbeats` (`ts`);
+--> statement-breakpoint
+CREATE TABLE `device_shadow` (
+	`device_id` text PRIMARY KEY NOT NULL,
+	`desired_json` text,
+	`reported_json` text,
+	`last_sync` integer,
+	`drift_flag` integer DEFAULT 0 NOT NULL,
+	FOREIGN KEY (`device_id`) REFERENCES `devices`(`id`) ON UPDATE no action ON DELETE no action
+);
+
+--> statement-breakpoint
+CREATE TABLE `devices` (
+	`id` text PRIMARY KEY NOT NULL,
+	`serial` text NOT NULL,
+	`manufacturer` text NOT NULL,
+	`model` text NOT NULL,
+	`firmware_version` text,
+	`location_id` text,
+	`status` text DEFAULT 'active' NOT NULL,
+	`terminal_mid` text,
+	`terminal_tid` text,
+	`fraction_capacity_json` text,
+	`installed_at` integer,
+	`warranty_until` integer,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	`version` integer DEFAULT 1 NOT NULL,
+	`deleted_at` integer,
+	FOREIGN KEY (`location_id`) REFERENCES `locations`(`id`) ON UPDATE no action ON DELETE no action
+);
+
+--> statement-breakpoint
+CREATE UNIQUE INDEX `devices_serial_idx` ON `devices` (`serial`);
+--> statement-breakpoint
+CREATE INDEX `devices_location_idx` ON `devices` (`location_id`);
+--> statement-breakpoint
+CREATE TABLE `disputes` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`reconciliation_id` integer NOT NULL,
+	`state` text DEFAULT 'INQUIRY_EVIDENCE_REQUIRED' NOT NULL,
+	`due_at` integer NOT NULL,
+	`evidence_json` text,
+	`disputed_amount_grosze` integer,
+	`outcome` text,
+	`default_action_taken` integer DEFAULT 0 NOT NULL,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL
+);
+
+--> statement-breakpoint
+CREATE INDEX `disputes_reconciliation_idx` ON `disputes` (`reconciliation_id`);
+--> statement-breakpoint
+CREATE INDEX `disputes_state_idx` ON `disputes` (`state`);
+--> statement-breakpoint
+CREATE INDEX `disputes_due_idx` ON `disputes` (`due_at`);
+--> statement-breakpoint
+CREATE TABLE `drivers` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`name` text NOT NULL,
+	`type` text NOT NULL,
+	`company` text,
+	`bdo_number` text,
+	`bdo_verified` integer DEFAULT 0 NOT NULL,
+	`gps_id` text,
+	`status` text DEFAULT 'pending' NOT NULL,
+	`created_at` integer NOT NULL
+);
+
+--> statement-breakpoint
+CREATE TABLE `event_log` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`cycle_id` integer,
+	`point_id` text,
+	`event_type` text NOT NULL,
+	`idempotency_key` text,
+	`payload_json` text,
+	`source` text,
+	`actor_id` integer,
+	`received_at` integer,
+	`processed_at` integer,
+	`processing_error` text,
+	`correlation_id` text,
+	`created_at` integer NOT NULL
+);
+
+--> statement-breakpoint
+CREATE INDEX `event_log_cycle_idx` ON `event_log` (`cycle_id`);
+--> statement-breakpoint
+CREATE INDEX `event_log_type_idx` ON `event_log` (`event_type`);
+--> statement-breakpoint
+CREATE INDEX `event_log_created_idx` ON `event_log` (`created_at`);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `event_log_idempotency_idx` ON `event_log` (`idempotency_key`);
+--> statement-breakpoint
+CREATE TABLE `import_profiles` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`name` text NOT NULL,
+	`org_id` integer NOT NULL,
+	`kind` text NOT NULL,
+	`mapping_json` text NOT NULL,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`org_id`) REFERENCES `organizations`(`id`) ON UPDATE no action ON DELETE no action
+);
+
+--> statement-breakpoint
+CREATE INDEX `import_profiles_org_idx` ON `import_profiles` (`org_id`);
+--> statement-breakpoint
+CREATE TABLE `investors` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`name` text NOT NULL,
+	`type` text NOT NULL,
+	`status` text DEFAULT 'pending' NOT NULL,
+	`created_at` integer NOT NULL
+);
+
+--> statement-breakpoint
+CREATE TABLE `invites` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`token` text NOT NULL,
+	`role` text NOT NULL,
+	`label` text NOT NULL,
+	`investor_id` integer,
+	`driver_id` integer,
+	`status` text DEFAULT 'pending' NOT NULL,
+	`created_by` integer NOT NULL,
+	`created_at` integer NOT NULL,
+	`used_at` integer
+);
+
+--> statement-breakpoint
+CREATE UNIQUE INDEX `invites_token_idx` ON `invites` (`token`);
+--> statement-breakpoint
+CREATE TABLE `invoices` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`ksef_number` text NOT NULL,
+	`recipient` text NOT NULL,
+	`investor_id` integer,
+	`driver_id` integer,
+	`title` text NOT NULL,
+	`amount_grosze` integer NOT NULL,
+	`issue_date` text NOT NULL,
+	`status` text DEFAULT 'zaakceptowana' NOT NULL,
+	`created_at` integer NOT NULL
+);
+
+--> statement-breakpoint
+CREATE TABLE `ledger_entries` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`cycle_id` integer NOT NULL,
+	`entry_type` text NOT NULL,
+	`party_org_id` integer,
+	`direction` text NOT NULL,
+	`amount_net` integer NOT NULL,
+	`vat_rate` real DEFAULT 23 NOT NULL,
+	`vat_amount` integer NOT NULL,
+	`amount_gross` integer NOT NULL,
+	`location_id` text,
+	`device_id` text,
+	`event_date` integer,
+	`operational_date` integer,
+	`booking_date` integer,
+	`source_event_id` integer,
+	`end_to_end_id` text,
+	`invoice_id` integer,
+	`rate_card_id` integer,
+	`reversal_of_id` integer,
+	`prev_hash` text,
+	`entry_hash` text,
+	`author` text,
+	`source` text,
+	`created_at` integer NOT NULL
+);
+
+--> statement-breakpoint
+CREATE INDEX `ledger_entries_cycle_idx` ON `ledger_entries` (`cycle_id`);
+--> statement-breakpoint
+CREATE INDEX `ledger_entries_party_idx` ON `ledger_entries` (`party_org_id`);
+--> statement-breakpoint
+CREATE INDEX `ledger_entries_entry_type_idx` ON `ledger_entries` (`entry_type`);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `ledger_entries_end_to_end_idx` ON `ledger_entries` (`end_to_end_id`);
+--> statement-breakpoint
+CREATE INDEX `ledger_entries_hash_idx` ON `ledger_entries` (`cycle_id`,`id`);
+--> statement-breakpoint
+CREATE INDEX `ledger_entries_cycle_type_idx` ON `ledger_entries` (`cycle_id`,`entry_type`);
+--> statement-breakpoint
+CREATE INDEX `ledger_entries_location_created_idx` ON `ledger_entries` (`location_id`,`created_at`);
+--> statement-breakpoint
+CREATE INDEX `ledger_entries_entry_hash_idx` ON `ledger_entries` (`entry_hash`);
+--> statement-breakpoint
+CREATE INDEX `ledger_entries_prev_hash_idx` ON `ledger_entries` (`prev_hash`);
+--> statement-breakpoint
+CREATE TABLE `location_operators` (
+	`location_id` text NOT NULL,
+	`operator_org_id` integer NOT NULL,
+	`active_from` integer NOT NULL,
+	`active_to` integer,
+	`created_at` integer NOT NULL,
+	PRIMARY KEY(`location_id`, `operator_org_id`, `active_from`),
+	FOREIGN KEY (`location_id`) REFERENCES `locations`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`operator_org_id`) REFERENCES `organizations`(`id`) ON UPDATE no action ON DELETE no action
+);
+
+--> statement-breakpoint
+CREATE INDEX `location_operators_loc_idx` ON `location_operators` (`location_id`);
+--> statement-breakpoint
+CREATE INDEX `location_operators_op_idx` ON `location_operators` (`operator_org_id`);
+--> statement-breakpoint
+CREATE TABLE `locations` (
+	`id` text PRIMARY KEY NOT NULL,
+	`address` text NOT NULL,
+	`district` text,
+	`lat` real,
+	`lng` real,
+	`region_id` integer,
+	`investor_org_id` integer,
+	`coop_org_id` integer,
+	`exclusivity_radius_m` integer,
+	`investment_period_months` integer,
+	`efficiency_threshold_units` integer,
+	`launch_date` text,
+	`monthly_rent_grosze` integer,
+	`placeme_data_json` text,
+	`fill_level` integer DEFAULT 0 NOT NULL,
+	`status` text DEFAULT 'online' NOT NULL,
+	`last_collection_at` integer,
+	`monthly_packages` integer DEFAULT 0 NOT NULL,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	`version` integer DEFAULT 1 NOT NULL,
+	`deleted_at` integer,
+	FOREIGN KEY (`region_id`) REFERENCES `regions`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`investor_org_id`) REFERENCES `organizations`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`coop_org_id`) REFERENCES `organizations`(`id`) ON UPDATE no action ON DELETE no action
+);
+
+--> statement-breakpoint
+CREATE INDEX `locations_region_idx` ON `locations` (`region_id`);
+--> statement-breakpoint
+CREATE INDEX `locations_investor_idx` ON `locations` (`investor_org_id`);
+--> statement-breakpoint
+CREATE TABLE `logistic_minimums` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`contract_id` integer NOT NULL,
+	`frequency` text NOT NULL,
+	`minimum_units` integer NOT NULL,
+	`incidental_pickup_fee_grosze` integer,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	`version` integer DEFAULT 1 NOT NULL,
+	`deleted_at` integer,
+	FOREIGN KEY (`contract_id`) REFERENCES `contracts`(`id`) ON UPDATE no action ON DELETE no action
+);
+
+--> statement-breakpoint
+CREATE TABLE `memberships` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`user_id` integer NOT NULL,
+	`org_id` integer NOT NULL,
+	`role` text NOT NULL,
+	`scope_type` text,
+	`scope_ids_json` text,
+	`assignment_type` text DEFAULT 'EXPLICIT' NOT NULL,
+	`created_at` integer NOT NULL,
+	`deleted_at` integer,
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`org_id`) REFERENCES `organizations`(`id`) ON UPDATE no action ON DELETE no action
+);
+
+--> statement-breakpoint
+CREATE UNIQUE INDEX `memberships_user_org_idx` ON `memberships` (`user_id`,`org_id`);
+--> statement-breakpoint
+CREATE INDEX `memberships_org_idx` ON `memberships` (`org_id`);
+--> statement-breakpoint
+CREATE TABLE `meta` (
+	`key` text PRIMARY KEY NOT NULL,
+	`value` text NOT NULL
+);
+
+--> statement-breakpoint
+CREATE TABLE `operator_credits` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`cycle_id` integer NOT NULL,
+	`point_id` text NOT NULL,
+	`packages` integer NOT NULL,
+	`amount_grosze` integer NOT NULL,
+	`source_csv` text,
+	`source_row` integer,
+	`source_reference` text,
+	`created_at` integer NOT NULL
+);
+
+--> statement-breakpoint
+CREATE INDEX `operator_credits_cycle_idx` ON `operator_credits` (`cycle_id`);
+--> statement-breakpoint
+CREATE INDEX `operator_credits_point_idx` ON `operator_credits` (`point_id`);
+--> statement-breakpoint
+CREATE TABLE `operator_terms` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`contract_id` integer NOT NULL,
+	`report_days` integer NOT NULL,
+	`payout_days` integer NOT NULL,
+	`day_type` text DEFAULT 'BUSINESS' NOT NULL,
+	`currency` text DEFAULT 'PLN' NOT NULL,
+	`notes` text,
+	`valid_from` integer NOT NULL,
+	`valid_to` integer,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	`version` integer DEFAULT 1 NOT NULL,
+	`deleted_at` integer,
+	FOREIGN KEY (`contract_id`) REFERENCES `contracts`(`id`) ON UPDATE no action ON DELETE no action
+);
+
+--> statement-breakpoint
+CREATE INDEX `operator_terms_contract_idx` ON `operator_terms` (`contract_id`);
+--> statement-breakpoint
+CREATE INDEX `operator_terms_valid_idx` ON `operator_terms` (`valid_from`);
+--> statement-breakpoint
+CREATE TABLE `organizations` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`type` text NOT NULL,
+	`name` text NOT NULL,
+	`nip` text,
+	`krs` text,
+	`regon` text,
+	`bdo_number` text,
+	`bank_accounts_json` text,
+	`vat_whitelist_status` text,
+	`vat_whitelist_checked_at` integer,
+	`status` text DEFAULT 'active' NOT NULL,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	`version` integer DEFAULT 1 NOT NULL,
+	`deleted_at` integer
+);
+
+--> statement-breakpoint
+CREATE INDEX `organizations_type_idx` ON `organizations` (`type`);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `organizations_nip_idx` ON `organizations` (`nip`);
+--> statement-breakpoint
+CREATE TABLE `packaging_items` (
+	`ean` text PRIMARY KEY NOT NULL,
+	`barcode_format` text,
+	`barcode_width` integer,
+	`barcode_height` integer,
+	`product_name` text,
+	`volume_ml` integer,
+	`material` text,
+	`fraction` text,
+	`fraction_colour` text,
+	`weight_without_cap_g` real,
+	`weight_total_g` real,
+	`height_without_cap_mm` real,
+	`height_total_mm` real,
+	`width_mm` real,
+	`length_mm` real,
+	`market_entry_date` text,
+	`market_withdrawal_date` text,
+	`producer` text,
+	`deposit_amount_grosze` integer,
+	`is_deleted` integer DEFAULT 0 NOT NULL,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL
+);
+
+--> statement-breakpoint
+CREATE TABLE `points` (
+	`id` text PRIMARY KEY NOT NULL,
+	`address` text NOT NULL,
+	`district` text NOT NULL,
+	`investor_id` integer NOT NULL,
+	`lat` real,
+	`lng` real,
+	`fill_level` integer DEFAULT 0 NOT NULL,
+	`status` text DEFAULT 'online' NOT NULL,
+	`last_collection_at` integer,
+	`monthly_packages` integer DEFAULT 0 NOT NULL,
+	`created_at` integer NOT NULL
+);
+
+--> statement-breakpoint
+CREATE INDEX `points_investor_idx` ON `points` (`investor_id`);
+--> statement-breakpoint
+CREATE TABLE `rate_cards` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`contract_id` integer NOT NULL,
+	`valid_from` integer NOT NULL,
+	`valid_to` integer,
+	`fraction` text NOT NULL,
+	`collection_model` text NOT NULL,
+	`packaging_type` text NOT NULL,
+	`rate_value` real NOT NULL,
+	`rate_unit` text NOT NULL,
+	`currency` text DEFAULT 'PLN' NOT NULL,
+	`description` text,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	`version` integer DEFAULT 1 NOT NULL,
+	`deleted_at` integer,
+	FOREIGN KEY (`contract_id`) REFERENCES `contracts`(`id`) ON UPDATE no action ON DELETE no action
+);
+
+--> statement-breakpoint
+CREATE INDEX `rate_cards_contract_idx` ON `rate_cards` (`contract_id`);
+--> statement-breakpoint
+CREATE INDEX `rate_cards_valid_idx` ON `rate_cards` (`valid_from`);
+--> statement-breakpoint
+CREATE INDEX `rate_cards_fraction_idx` ON `rate_cards` (`fraction`);
+--> statement-breakpoint
+CREATE TABLE `reconciliations` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`cycle_id` integer,
+	`scope_type` text NOT NULL,
+	`scope_ref` text NOT NULL,
+	`source_a_json` text,
+	`source_b_json` text,
+	`source_c_json` text,
+	`delta_ab` real,
+	`delta_bc` real,
+	`delta_ac` real,
+	`delta_pct` real,
+	`status` text DEFAULT 'matched' NOT NULL,
+	`created_at` integer NOT NULL
+);
+
+--> statement-breakpoint
+CREATE INDEX `reconciliations_cycle_idx` ON `reconciliations` (`cycle_id`);
+--> statement-breakpoint
+CREATE INDEX `reconciliations_scope_idx` ON `reconciliations` (`scope_type`,`scope_ref`);
+--> statement-breakpoint
+CREATE TABLE `regions` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`name` text NOT NULL,
+	`hub_org_id` integer NOT NULL,
+	`manager_user_id` integer,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	`version` integer DEFAULT 1 NOT NULL,
+	`deleted_at` integer,
+	FOREIGN KEY (`hub_org_id`) REFERENCES `organizations`(`id`) ON UPDATE no action ON DELETE no action
+);
+
+--> statement-breakpoint
+CREATE INDEX `regions_hub_idx` ON `regions` (`hub_org_id`);
+--> statement-breakpoint
+CREATE TABLE `sessions` (
+	`token` text PRIMARY KEY NOT NULL,
+	`user_id` integer NOT NULL,
+	`expires_at` integer NOT NULL,
+	`last_activity_at` integer NOT NULL,
+	`created_at` integer NOT NULL
+);
+
+--> statement-breakpoint
+CREATE TABLE `settlement_cycles` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`label` text NOT NULL,
+	`period_start` integer NOT NULL,
+	`period_end` integer NOT NULL,
+	`status` text DEFAULT 'draft' NOT NULL,
+	`cycle_type` text,
+	`contract_id` integer,
+	`approved_by` integer,
+	`approved_at` integer,
+	`closed_at` integer,
+	`created_at` integer NOT NULL,
+	`created_by` integer
+);
+
+--> statement-breakpoint
+CREATE INDEX `settlement_cycles_status_idx` ON `settlement_cycles` (`status`);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `settlement_cycles_label_idx` ON `settlement_cycles` (`label`);
+--> statement-breakpoint
+CREATE TABLE `settlements` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`period` text NOT NULL,
+	`party` text NOT NULL,
+	`party_type` text NOT NULL,
+	`investor_id` integer,
+	`driver_id` integer,
+	`count` integer NOT NULL,
+	`rate_label` text NOT NULL,
+	`net_grosze` integer NOT NULL,
+	`vat_grosze` integer NOT NULL,
+	`gross_grosze` integer NOT NULL,
+	`created_at` integer NOT NULL
+);
+
+--> statement-breakpoint
+CREATE INDEX `settlements_period_idx` ON `settlements` (`period`);
+--> statement-breakpoint
+CREATE TABLE `sorter_receipts` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`cycle_id` integer NOT NULL,
+	`point_id` text NOT NULL,
+	`packages` integer NOT NULL,
+	`received_at` integer,
+	`source_csv` text,
+	`source_row` integer,
+	`source_reference` text,
+	`created_at` integer NOT NULL
+);
+
+--> statement-breakpoint
+CREATE INDEX `sorter_receipts_cycle_idx` ON `sorter_receipts` (`cycle_id`);
+--> statement-breakpoint
+CREATE INDEX `sorter_receipts_point_idx` ON `sorter_receipts` (`point_id`);
+--> statement-breakpoint
+CREATE TABLE `users` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`email` text NOT NULL,
+	`name` text NOT NULL,
+	`role` text NOT NULL,
+	`password_hash` text NOT NULL,
+	`salt` text NOT NULL,
+	`investor_id` integer,
+	`driver_id` integer,
+	`status` text DEFAULT 'active' NOT NULL,
+	`created_at` integer NOT NULL
+);
+
+--> statement-breakpoint
+CREATE UNIQUE INDEX `users_email_idx` ON `users` (`email`);

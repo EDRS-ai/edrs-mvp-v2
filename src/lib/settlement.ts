@@ -13,6 +13,8 @@
 // 5. Platforma (PLATFORM_SUBSCRIPTION + PLATFORM_SETTLEMENT_FEE) — abonament + 0,5% z rate_cards
 
 import { newToken } from "./auth";
+import { makeDb } from "../db";
+import { ledgerEntries } from "../schema";
 
 // Typy entry_type (słownik z PROMPT 3):
 export const ENTRY_TYPES = {
@@ -101,7 +103,7 @@ async function computeEntryHash(prevHash: string, entryData: string): Promise<st
 
 // Wrap INSERT into ledger_entries with hash chain + author/source metadata.
 // Zwraca id nowego wpisu. Caller musi być w kontekście await (funkcja async).
-async function insertLedgerEntry(env: any, params: {
+export async function insertLedgerEntry(env: any, params: {
   cycleId: number;
   entryType: string;
   partyOrgId: number | null;
@@ -171,6 +173,19 @@ async function insertLedgerEntry(env: any, params: {
   );
 
   return Number(env.sql.query<{ id: number }>("SELECT last_insert_rowid() AS id")[0].id);
+}
+
+
+// PROMPT 6.3 — Batch INSERT all entries for a cycle at once.
+// Neon Postgres (HTTP driver): 1 HTTP request (true multi-statement), 16k entries <5s.
+// SQLite (sqlite-proxy): sequential per INSERT (still works, no big speedup but consistent code path).
+// Hash chain integrity: caller MUST pre-compute prev_hash → entry_hash for each entry in sequence.
+// Returns number of rows inserted. IDs are not returned in batch mode (use last_insert_rowid for last id).
+export async function insertLedgerEntriesBatch(env: any, entries: Array<typeof ledgerEntries.$inferInsert>): Promise<number> {
+  if (entries.length === 0) return 0;
+  const db = makeDb(env);
+  await db.batch(entries.map(e => db.insert(ledgerEntries).values(e)));
+  return entries.length;
 }
 
 // Próg rekoncyliacji per kontrakt. Czyta z rate_cards (packaging_type=reconciliation_threshold, rate_unit=PCT).
@@ -288,9 +303,75 @@ export async function runSettlementEngine(env: any, cycleId: number, cycle: any)
   // Domyślnie 2.0% jeśli brak wpisu. Wywołanie tutaj waliduje że helper jest poprawnie podpięty.
   void getThreshold(env, platformContractId);
 
-  // 8. Dla każdego uznanie operatora, utwórz ledger entries (5 stron, z hash chain)
+  // PROMPT 6.3 — BATCH MODE: akumuluj entries + 1 batch INSERT na końcu cyklu
   const partyTotals = new Map<number, { netGrosze: number; entryCount: number }>();
+  const allEntries: Array<typeof ledgerEntries.$inferInsert> = [];
+  // Hash chain startuje świeżo po DELETE — pierwszy entry ma prev_hash="GENESIS"
+  let prevHash = "GENESIS";
 
+  // Inline buildEntry closure — każdy entry zna swój prev_hash z poprzedniego entry w sekwencji
+  // i update'uje prevHash dla następnego. Hash chain SHA-256 jak w insertLedgerEntry (PROMPT 5).
+  async function buildEntry(params: {
+    entryType: string;
+    partyOrgId: number | null;
+    direction: "credit" | "debit";
+    amountNet: number;
+    vatAmount: number;
+    amountGross: number;
+    locationId?: string | null;
+    endToEndId?: string | null;
+    rateCardId?: number | null;
+    author?: string;
+    source?: string;
+  }): Promise<typeof ledgerEntries.$inferInsert> {
+    const canonical = JSON.stringify({
+      cycleId,
+      entryType: params.entryType,
+      partyOrgId: params.partyOrgId,
+      direction: params.direction,
+      amountNet: params.amountNet,
+      vatAmount: params.vatAmount,
+      amountGross: params.amountGross,
+      locationId: params.locationId ?? null,
+      eventDate,
+      operationalDate,
+      bookingDate,
+      endToEndId: params.endToEndId ?? null,
+      rateCardId: params.rateCardId ?? null,
+      author: params.author ?? "system",
+      source: params.source ?? "engine",
+    });
+    const entryHash = await computeEntryHash(prevHash, canonical);
+    const entry: typeof ledgerEntries.$inferInsert = {
+      cycleId,
+      entryType: params.entryType,
+      partyOrgId: params.partyOrgId,
+      direction: params.direction,
+      amountNet: params.amountNet,
+      vatRate: VAT_RATE,
+      vatAmount: params.vatAmount,
+      amountGross: params.amountGross,
+      locationId: params.locationId ?? null,
+      deviceId: null,
+      eventDate,
+      operationalDate,
+      bookingDate,
+      sourceEventId: null,
+      endToEndId: params.endToEndId ?? null,
+      invoiceId: null,
+      rateCardId: params.rateCardId ?? null,
+      reversalOfId: null,
+      prevHash,
+      entryHash,
+      author: params.author ?? "system",
+      source: params.source ?? "engine",
+      createdAt: now,
+    };
+    prevHash = entryHash; // update dla następnego entry w sekwencji
+    return entry;
+  }
+
+  // 8. Dla każdego uznanie operatora, akumuluj ledger entries (5 stron, z hash chain)
   for (const credit of credits) {
     const locInfo = locationMap.get(credit.point_id);
     if (!locInfo) {
@@ -311,13 +392,12 @@ export async function runSettlementEngine(env: any, cycleId: number, cycle: any)
       const netGrosze = calculateAmount(driverRate.rateValue, driverRate.rateUnit, packages, 1, depositValueGrosze);
       const { vatAmount, grossGrosze } = calculateVAT(netGrosze);
       const endToEndId = generateEndToEndId();
-      await insertLedgerEntry(env, {
-        cycleId, entryType: ENTRY_TYPES.DRIVER_FEE, partyOrgId: 5, direction: "credit",
-        amountNet: netGrosze, vatRate: VAT_RATE, vatAmount, amountGross: grossGrosze,
-        locationId: credit.point_id, eventDate, operationalDate, bookingDate,
-        endToEndId, rateCardId: driverRate.id,
+      allEntries.push(await buildEntry({
+        entryType: ENTRY_TYPES.DRIVER_FEE, partyOrgId: 5, direction: "credit",
+        amountNet: netGrosze, vatAmount, amountGross: grossGrosze,
+        locationId: credit.point_id, endToEndId, rateCardId: driverRate.id,
         author: "settlement_engine", source: "engine:driver_fee",
-      });
+      }));
       addToPartyTotals(partyTotals, 5, netGrosze);
     }
 
@@ -327,13 +407,12 @@ export async function runSettlementEngine(env: any, cycleId: number, cycle: any)
       const netGrosze = calculateAmount(carrierRate.rateValue, carrierRate.rateUnit, packages, 1, depositValueGrosze);
       const { vatAmount, grossGrosze } = calculateVAT(netGrosze);
       const endToEndId = generateEndToEndId();
-      await insertLedgerEntry(env, {
-        cycleId, entryType: ENTRY_TYPES.CARRIER_FEE, partyOrgId: 5, direction: "credit",
-        amountNet: netGrosze, vatRate: VAT_RATE, vatAmount, amountGross: grossGrosze,
-        locationId: credit.point_id, eventDate, operationalDate, bookingDate,
-        endToEndId, rateCardId: carrierRate.id,
+      allEntries.push(await buildEntry({
+        entryType: ENTRY_TYPES.CARRIER_FEE, partyOrgId: 5, direction: "credit",
+        amountNet: netGrosze, vatAmount, amountGross: grossGrosze,
+        locationId: credit.point_id, endToEndId, rateCardId: carrierRate.id,
         author: "settlement_engine", source: "engine:carrier_fee",
-      });
+      }));
       addToPartyTotals(partyTotals, 5, netGrosze);
     }
 
@@ -346,22 +425,20 @@ export async function runSettlementEngine(env: any, cycleId: number, cycle: any)
       if (activeDispute) {
         // Z1: spór mrozi kwotę — zamiast DEPOSIT_REIMBURSEMENT (credit) tworzymy DISPUTE_HOLD (debit).
         // Reszta pozycji dla tej lokalizacji (driver, carrier, handling) idzie normalnie do batcha.
-        await insertLedgerEntry(env, {
-          cycleId, entryType: ENTRY_TYPES.DISPUTE_HOLD, partyOrgId: locInfo.investorOrgId, direction: "debit",
-          amountNet: netGrosze, vatRate: VAT_RATE, vatAmount, amountGross: grossGrosze,
-          locationId: credit.point_id, eventDate, operationalDate, bookingDate,
-          endToEndId, rateCardId: depositRate.id,
+        allEntries.push(await buildEntry({
+          entryType: ENTRY_TYPES.DISPUTE_HOLD, partyOrgId: locInfo.investorOrgId, direction: "debit",
+          amountNet: netGrosze, vatAmount, amountGross: grossGrosze,
+          locationId: credit.point_id, endToEndId, rateCardId: depositRate.id,
           author: "settlement_engine", source: `engine:dispute_hold:${activeDispute.id}`,
-        });
+        }));
         addToPartyTotals(partyTotals, locInfo.investorOrgId, -netGrosze);
       } else {
-        await insertLedgerEntry(env, {
-          cycleId, entryType: ENTRY_TYPES.DEPOSIT_REIMBURSEMENT, partyOrgId: locInfo.investorOrgId, direction: "credit",
-          amountNet: netGrosze, vatRate: VAT_RATE, vatAmount, amountGross: grossGrosze,
-          locationId: credit.point_id, eventDate, operationalDate, bookingDate,
-          endToEndId, rateCardId: depositRate.id,
+        allEntries.push(await buildEntry({
+          entryType: ENTRY_TYPES.DEPOSIT_REIMBURSEMENT, partyOrgId: locInfo.investorOrgId, direction: "credit",
+          amountNet: netGrosze, vatAmount, amountGross: grossGrosze,
+          locationId: credit.point_id, endToEndId, rateCardId: depositRate.id,
           author: "settlement_engine", source: "engine:deposit_reimbursement",
-        });
+        }));
         addToPartyTotals(partyTotals, locInfo.investorOrgId, netGrosze);
       }
     }
@@ -372,13 +449,12 @@ export async function runSettlementEngine(env: any, cycleId: number, cycle: any)
       const netGrosze = calculateAmount(handlingRate.rateValue, handlingRate.rateUnit, packages, 1, depositValueGrosze);
       const { vatAmount, grossGrosze } = calculateVAT(netGrosze);
       const endToEndId = generateEndToEndId();
-      await insertLedgerEntry(env, {
-        cycleId, entryType: ENTRY_TYPES.HANDLING_FEE, partyOrgId: 6, direction: "credit",
-        amountNet: netGrosze, vatRate: VAT_RATE, vatAmount, amountGross: grossGrosze,
-        locationId: credit.point_id, eventDate, operationalDate, bookingDate,
-        endToEndId, rateCardId: handlingRate.id,
+      allEntries.push(await buildEntry({
+        entryType: ENTRY_TYPES.HANDLING_FEE, partyOrgId: 6, direction: "credit",
+        amountNet: netGrosze, vatAmount, amountGross: grossGrosze,
+        locationId: credit.point_id, endToEndId, rateCardId: handlingRate.id,
         author: "settlement_engine", source: "engine:handling_fee",
-      });
+      }));
       addToPartyTotals(partyTotals, 6, netGrosze);
     }
   }
@@ -403,33 +479,34 @@ export async function runSettlementEngine(env: any, cycleId: number, cycle: any)
       if (prorated <= 0) continue;
       const { vatAmount, grossGrosze } = calculateVAT(prorated);
       const endToEndId = generateEndToEndId();
-      await insertLedgerEntry(env, {
-        cycleId, entryType: ENTRY_TYPES.PLATFORM_SUBSCRIPTION, partyOrgId: 1, direction: "credit",
-        amountNet: prorated, vatRate: VAT_RATE, vatAmount, amountGross: grossGrosze,
-        locationId: pointId, eventDate, operationalDate, bookingDate,
-        endToEndId, rateCardId: platformRate.id,
+      allEntries.push(await buildEntry({
+        entryType: ENTRY_TYPES.PLATFORM_SUBSCRIPTION, partyOrgId: 1, direction: "credit",
+        amountNet: prorated, vatAmount, amountGross: grossGrosze,
+        locationId: pointId, endToEndId, rateCardId: platformRate.id,
         author: "settlement_engine", source: "engine:platform_subscription_prorated",
-      });
+      }));
       addToPartyTotals(partyTotals, 1, prorated);
     }
   }
 
-  // Strona 5b: Platforma (PLATFORM_SETTLEMENT_FEE) — 0,5% od wolumenu kaucji
+  // PLATFORM_SETTLEMENT_FEE — 0,5% od wolumenu kaucji
   const totalDepositGrosze = credits.reduce((sum: number, c: any) => sum + c.amount_grosze, 0);
   const settlementRate = getRateCard(env, 3, "MIXED", "invoice", "ksef_fee", eventDate);
   if (settlementRate) {
     const netGrosze = Math.round((settlementRate.rateValue / 100) * totalDepositGrosze * 100);
     const { vatAmount, grossGrosze } = calculateVAT(netGrosze);
     const endToEndId = generateEndToEndId();
-    await insertLedgerEntry(env, {
-      cycleId, entryType: ENTRY_TYPES.PLATFORM_SETTLEMENT_FEE, partyOrgId: 1, direction: "credit",
-      amountNet: netGrosze, vatRate: VAT_RATE, vatAmount, amountGross: grossGrosze,
-      eventDate, operationalDate, bookingDate,
+    allEntries.push(await buildEntry({
+      entryType: ENTRY_TYPES.PLATFORM_SETTLEMENT_FEE, partyOrgId: 1, direction: "credit",
+      amountNet: netGrosze, vatAmount, amountGross: grossGrosze,
       endToEndId, rateCardId: settlementRate.id,
       author: "settlement_engine", source: "engine:platform_settlement_fee",
-    });
+    }));
     addToPartyTotals(partyTotals, 1, netGrosze);
   }
+
+  // PROMPT 6.3 — BATCH INSERT all entries at once (Neon Postgres: 1 HTTP request, 16k entries <5s)
+  const entriesCreated = await insertLedgerEntriesBatch(env, allEntries);
 
   // Buduj podsumowanie per strona
   const partySummary: { orgId: number; orgName: string; netGrosze: number; entryCount: number }[] = [];
@@ -443,12 +520,9 @@ export async function runSettlementEngine(env: any, cycleId: number, cycle: any)
     });
   }
 
-  const entriesCreated = env.sql.query<{ n: number }>(
-    "SELECT COUNT(*) AS n FROM ledger_entries WHERE cycle_id = ? AND reversal_of_id IS NULL",
-    [cycleId]
-  )[0]?.n ?? 0;
-
   return { entriesCreated, partySummary, errors };
+}
+
 
 // Funkcja pomocnicza: dodaj do podsumowania per strona
 function addToPartyTotals(map: Map<number, { netGrosze: number; entryCount: number }>, orgId: number, netGrosze: number) {
