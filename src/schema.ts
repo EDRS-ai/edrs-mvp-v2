@@ -17,7 +17,7 @@
 //   - Stare `points` zostaje na czas migracji — nowe `locations` jest kanoniczne (multi-tenant).
 //     Handler zostanie przeniesiony na `locations` w sesji 2.
 
-import { sqliteTable, integer, text, real, uniqueIndex, index, primaryKey } from "drizzle-orm/sqlite-core";
+import { sqliteTable, integer, text, real, uniqueIndex, index, primaryKey, blob } from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
 
 // ─── PROMPT 0 tables (zachowane bez zmian) ──────────────────────────────────────
@@ -698,4 +698,41 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
 }));
 export const messagesRelations = relations(messages, ({ one }) => ({
   org: one(organizations, { fields: [messages.orgId], references: [organizations.id] }),
+}));
+
+// ─── PROMPT 12: dokumenty (archiwum per org, wzór eMieszkaniec) ─────────────
+// org_id NULL = dokument globalny (widoczny dla wszystkich inwestorów).
+// Bajty w doc_blobs — shard ≤1.8 MB (limit wiersza SQLite ~2 MB).
+export const documentsTable = sqliteTable("documents", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  orgId: integer("org_id").references(() => organizations.id),
+  title: text("title").notNull(),
+  category: text("category").notNull().default("inne"), // umowa | protokol | regulamin | sprawozdanie | inne
+  filename: text("filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  uploadedBy: integer("uploaded_by"),
+  createdAt: integer("created_at").notNull(),
+  deletedAt: integer("deleted_at"),
+}, (t) => ({
+  documentsOrgIdx: index("documents_org_idx").on(t.orgId),
+}));
+
+export const docBlobs = sqliteTable("doc_blobs", {
+  docId: integer("doc_id").notNull(),
+  idx: integer("idx").notNull(),
+  bytes: blob("bytes").notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.docId, t.idx] }),
+}));
+
+// ─── PROMPT 12: akceptacje sprawozdań miesięcznych (odpowiednik „uchwał”) ─────
+export const statementAcceptances = sqliteTable("statement_acceptances", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  orgId: integer("org_id").notNull().references(() => organizations.id),
+  period: text("period").notNull(), // YYYY-MM
+  acceptedBy: integer("accepted_by").notNull(),
+  acceptedAt: integer("accepted_at").notNull(),
+}, (t) => ({
+  acceptOrgPeriodIdx: uniqueIndex("statement_acceptances_org_period_idx").on(t.orgId, t.period),
 }));

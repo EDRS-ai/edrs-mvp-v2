@@ -21,6 +21,7 @@ import { runFullReconciliation, transitionDisputeState, executeDefaultAction, ge
 import { buildEventStream, mapSnapshot, parseCats, resolveCursor, emitEvent as emitRealtimeEvent, emitLocationUpdate } from "./lib/realtime";
 import { runAllAgents } from "./lib/agents";
 import { investorBalance, investorStatement, paymentsFor, createPayment, confirmPayment, generateMonthlyCharges } from "./lib/finance";
+import { saveDocument, readDocument, listDocuments, statementPeriods, renderStatementHtml, acceptStatement, DOC_CATEGORIES, MAX_DOC_BYTES } from "./lib/documents";
 
 type Bindings = { sql: any; websocket: any; ctx: AppCtx };
 
@@ -1442,6 +1443,110 @@ export function createApp() {
     }
     const charges = await generateMonthlyCharges(c.env);
     return c.json({ ok: true, contractsCreated, ratesCreated, charges });
+  });
+
+  // ─── PROMPT 12: dokumenty (archiwum) + sprawozdania miesięczne ─────────────
+  app.post("/api/admin/documents", requireMaster, async (c) => {
+    const me = c.get(APP_USER_KEY);
+    const { orgId, title, category, filename, mimeType, contentBase64 } = await c.req.json<{
+      orgId?: number | null; title: string; category: string; filename: string; mimeType: string; contentBase64: string;
+    }>();
+    if (!title?.trim() || !filename || !contentBase64) return c.json({ error: "missing_fields" }, 400);
+    const cat = DOC_CATEGORIES.includes(category as any) ? category : "inne";
+    let bytes: Uint8Array;
+    try { bytes = Uint8Array.from(atob(contentBase64), (ch) => ch.charCodeAt(0)); }
+    catch { return c.json({ error: "bad_base64" }, 400); }
+    if (bytes.byteLength === 0) return c.json({ error: "empty_file" }, 400);
+    if (bytes.byteLength > MAX_DOC_BYTES) return c.json({ error: "too_large", maxBytes: MAX_DOC_BYTES }, 413);
+    const r = saveDocument(c.env, { orgId: orgId ?? null, title: title.trim(), category: cat, filename, mimeType: mimeType || "application/octet-stream", bytes, uploadedBy: me.id });
+    logEvent(c.env, { eventType: "document_uploaded", payload: { docId: r.id, orgId: orgId ?? null, filename, sizeBytes: bytes.byteLength }, actorId: me.id });
+    return c.json({ ok: true, id: r.id, shards: r.shards });
+  });
+
+  app.get("/api/admin/documents", requireMaster, async (c) => {
+    return c.json({ documents: listDocuments(c.env, null) });
+  });
+
+  app.delete("/api/admin/documents/:id", requireMaster, async (c) => {
+    const me = c.get(APP_USER_KEY);
+    const id = Number(c.req.param("id"));
+    c.env.sql.exec("UPDATE documents SET deleted_at = ? WHERE id = ?", [Date.now(), id]);
+    logEvent(c.env, { eventType: "document_deleted", payload: { docId: id }, actorId: me.id });
+    return c.json({ ok: true });
+  });
+
+  app.get("/api/investor/documents", requireInvestor, async (c) => {
+    const me = c.get(APP_USER_KEY);
+    const orgId = investorOrgIdOf(c.env, me.investorId);
+    if (!orgId) return c.json({ error: "no_org_mapping" }, 403);
+    return c.json({ documents: listDocuments(c.env, orgId) });
+  });
+
+  // Pobranie bajtów: master — wszystko; inwestor — własne org + globalne.
+  app.get("/api/documents/:id/download", requireMasterOrInvestor, async (c) => {
+    const me = c.get(APP_USER_KEY);
+    const doc = readDocument(c.env, Number(c.req.param("id")));
+    if (!doc) return c.json({ error: "not_found" }, 404);
+    if (me.role === "investor") {
+      const orgId = investorOrgIdOf(c.env, me.investorId);
+      if (doc.meta.org_id !== null && doc.meta.org_id !== orgId) return c.json({ error: "forbidden" }, 403);
+    }
+    return c.body(doc.bytes as any, 200, {
+      "content-type": String(doc.meta.mime_type),
+      "content-length": String(doc.bytes.byteLength),
+      "content-disposition": `inline; filename="${String(doc.meta.filename).replace(/[^\w.\- ]/g, "_")}"`,
+      "cache-control": "private, no-store",
+    });
+  });
+
+  app.get("/api/investor/statements", requireInvestor, async (c) => {
+    const me = c.get(APP_USER_KEY);
+    const orgId = investorOrgIdOf(c.env, me.investorId);
+    if (!orgId) return c.json({ error: "no_org_mapping" }, 403);
+    return c.json({ periods: statementPeriods(c.env, orgId) });
+  });
+
+  app.get("/api/investor/statements/:period/html", requireInvestor, async (c) => {
+    const me = c.get(APP_USER_KEY);
+    const orgId = investorOrgIdOf(c.env, me.investorId);
+    if (!orgId) return c.json({ error: "no_org_mapping" }, 403);
+    const period = c.req.param("period");
+    if (!/^\d{4}-\d{2}$/.test(period)) return c.json({ error: "bad_period" }, 400);
+    const html = renderStatementHtml(c.env, orgId, period);
+    if (!html) return c.json({ error: "not_found" }, 404);
+    return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
+  });
+
+  app.post("/api/investor/statements/:period/accept", requireInvestor, async (c) => {
+    const me = c.get(APP_USER_KEY);
+    const orgId = investorOrgIdOf(c.env, me.investorId);
+    if (!orgId) return c.json({ error: "no_org_mapping" }, 403);
+    const period = c.req.param("period");
+    if (!/^\d{4}-\d{2}$/.test(period)) return c.json({ error: "bad_period" }, 400);
+    return c.json(acceptStatement(c.env, orgId, period, me.id));
+  });
+
+  app.get("/api/admin/statements", requireMaster, async (c) => {
+    const rows = c.env.sql.query<any>(
+      `SELECT le.party_org_id AS org_id, o.name AS org_name,
+              strftime('%Y-%m', COALESCE(le.booking_date, le.created_at) / 1000, 'unixepoch') AS period,
+              COUNT(*) AS entries,
+              SUM(CASE WHEN le.direction = 'credit' THEN le.amount_net ELSE -le.amount_net END) AS net,
+              (SELECT sa.accepted_at FROM statement_acceptances sa WHERE sa.org_id = le.party_org_id
+                 AND sa.period = strftime('%Y-%m', COALESCE(le.booking_date, le.created_at) / 1000, 'unixepoch')) AS accepted_at
+         FROM ledger_entries le JOIN organizations o ON o.id = le.party_org_id
+        WHERE le.party_org_id IS NOT NULL AND o.type = 'investor'
+        GROUP BY org_id, period ORDER BY period DESC, org_id`
+    );
+    return c.json({ statements: rows });
+  });
+
+  app.get("/api/admin/statements/:orgId/:period/html", requireMaster, async (c) => {
+    const period = c.req.param("period");
+    if (!/^\d{4}-\d{2}$/.test(period)) return c.json({ error: "bad_period" }, 400);
+    const html = renderStatementHtml(c.env, Number(c.req.param("orgId")), period);
+    if (!html) return c.json({ error: "not_found" }, 404);
+    return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
   });
 
   app.post("/admin/reseed", async (c) => {

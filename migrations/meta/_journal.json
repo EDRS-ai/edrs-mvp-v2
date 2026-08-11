@@ -22,6 +22,13 @@
       "when": 1786409849240,
       "tag": "0002_payments_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1786412640851,
+      "tag": "0003_documents_statements",
+      "breakpoints": true
     }
   ]
 }

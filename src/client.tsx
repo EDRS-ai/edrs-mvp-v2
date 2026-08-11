@@ -39,7 +39,7 @@ const Icon = ({ d, className = "w-4 h-4" }: { d: string; className?: string }) =
 );
 
 function NavShell({
-  title, nav, activeView, setView, user, onLogout, children, sidebarWidth = "w-64",
+  title, nav, activeView, setView, user, onLogout, children,
 }: {
   title: string;
   nav: { id: string; label: string; icon: string }[];
@@ -50,53 +50,58 @@ function NavShell({
   children: any;
   sidebarWidth?: string;
 }) {
+  // PROMPT 12: mobile drawer (wzór eMieszkaniec — zoptymalizowany pod urządzenia mobilne)
+  const [menuOpen, setMenuOpen] = useState(false);
+  const pick = (id: string) => { setView(id); setMenuOpen(false); };
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="flex">
-        <aside className={`fixed left-0 top-0 h-full ${sidebarWidth} bg-white border-r border-gray-200 z-10 flex flex-col`}>
-          <div className="p-6 border-b border-gray-200 flex items-center gap-2">
-            <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-              <Icon d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-bold text-lg">edrs.io</span>
+      {menuOpen && <div className="fixed inset-0 bg-black/30 z-20 lg:hidden" onClick={() => setMenuOpen(false)} />}
+      <aside className={`fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-30 flex flex-col transform transition-transform duration-200 lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className="p-6 border-b border-gray-200 flex items-center gap-2">
+          <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+            <Icon d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" className="w-5 h-5 text-white" />
           </div>
-          <nav className="p-4 space-y-1 flex-1">
-            {nav.map((item) => (
-              <button key={item.id} onClick={() => setView(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-left ${
-                  activeView === item.id ? "bg-green-50 text-green-700" : "text-gray-700 hover:bg-gray-100"
-                }`}>
-                <Icon d={item.icon} />{item.label}
-              </button>
-            ))}
-          </nav>
-          <div className="p-4 border-t border-gray-200 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
-                <span className="text-sm font-medium text-blue-700">
-                  {user.name.split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase()}
-                </span>
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm font-medium text-gray-900 truncate">{user.name}</div>
-                <div className="text-xs text-gray-500 truncate">{user.email}</div>
-              </div>
-            </div>
-            <button onClick={onLogout} className="p-2 hover:bg-gray-100 rounded-md shrink-0" title="Wyloguj">
-              <Icon d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          <span className="font-bold text-lg">edrs.io</span>
+        </div>
+        <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
+          {nav.map((item) => (
+            <button key={item.id} onClick={() => pick(item.id)}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-left ${
+                activeView === item.id ? "bg-green-50 text-green-700" : "text-gray-700 hover:bg-gray-100"
+              }`}>
+              <Icon d={item.icon} />{item.label}
             </button>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-gray-200 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center shrink-0">
+              <span className="text-sm font-medium text-green-700">
+                {user.name.split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase()}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-gray-900 truncate">{user.name}</div>
+              <div className="text-xs text-gray-500 truncate">{user.email}</div>
+            </div>
           </div>
-        </aside>
-        <header className={`fixed top-0 left-${sidebarWidth === "w-64" ? "64" : "0"} right-0 h-16 bg-white border-b border-gray-200 z-10 flex items-center justify-between px-6`}>
-          <div className="flex items-center gap-4">
-            <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
-              {user.role === "master" ? "Master" : user.role === "investor" ? "Inwestor" : "Kierowca"}
-            </span>
-          </div>
-        </header>
-        <main className={`ml-${sidebarWidth === "w-64" ? "64" : "0"} mt-16 p-6 flex-1 min-w-0`}>{children}</main>
-      </div>
+          <button onClick={onLogout} className="p-2 hover:bg-gray-100 rounded-md shrink-0" title="Wyloguj">
+            <Icon d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </button>
+        </div>
+      </aside>
+      <header className="fixed top-0 left-0 lg:left-64 right-0 h-16 bg-white border-b border-gray-200 z-10 flex items-center justify-between px-4 lg:px-6">
+        <div className="flex items-center gap-3">
+          <button className="lg:hidden p-2 hover:bg-gray-100 rounded-md" onClick={() => setMenuOpen(true)} title="Menu">
+            <Icon d="M4 6h16M4 12h16M4 18h16" className="w-5 h-5" />
+          </button>
+          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+          <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+            {user.role === "master" ? "Master" : user.role === "investor" ? "Inwestor" : "Kierowca"}
+          </span>
+        </div>
+      </header>
+      <main className="lg:ml-64 mt-16 p-4 lg:p-6 min-w-0">{children}</main>
     </div>
   );
 }
@@ -221,6 +226,36 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+      {/* PROMPT 12: kafelki modułów (wzór eMieszkaniec — „Poznaj możliwości") */}
+      <section id="rozwiazanie" className="py-20 lg:py-24 bg-gray-50 border-t border-gray-100">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="max-w-2xl mb-14">
+            <div className="text-sm font-medium text-green-600 mb-2 uppercase tracking-wider">Moduły platformy</div>
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">Poznaj możliwości Twojego nowego systemu</h2>
+            <p className="text-lg text-gray-600">Kompletne rozwiązanie dla operatorów sieci RVM, inwestorów i punktów zbiórki. Minimalizm opcji w każdym widoku.</p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {[
+              { t: "Ewidencja punktów i urządzeń", d: "Rejestr lokalizacji, recyklomatów i organizacji z pełną historią.", i: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" },
+              { t: "Mapa live i telemetria", d: "Zapełnienie, statusy i spory na mapie Polski w czasie rzeczywistym.", i: "M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" },
+              { t: "Automatyczne naliczenia", d: "Opłaty miesięczne ze stawek umownych — bez arkuszy, bez ręcznej pracy.", i: "M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" },
+              { t: "e-Kartoteka inwestora", d: "Saldo, wyciąg i netting: opłaty potrącane z przychodów kaucyjnych.", i: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+              { t: "Płatności online", d: "Dopłaty przez PolCard/Fiserv, księgowane automatycznie w ledgerze.", i: "M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" },
+              { t: "Sprawozdania z akceptacją", d: "Miesięczne rozliczenie do pobrania + akceptacja jednym kliknięciem.", i: "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+              { t: "Archiwum dokumentów", d: "Umowy, protokoły i regulaminy online — per inwestor lub globalnie.", i: "M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+              { t: "Komunikacja", d: "Bezpośrednie wątki inwestor–operator z historią i licznikiem nieprzeczytanych.", i: "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" },
+            ].map((m) => (
+              <div key={m.t} className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+                <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center mb-4">
+                  <Icon d={m.i} className="w-5 h-5 text-green-600" />
+                </div>
+                <div className="font-semibold text-gray-900 mb-1.5">{m.t}</div>
+                <div className="text-sm text-gray-600 leading-relaxed">{m.d}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -359,6 +394,8 @@ function MasterApp({ user, onLogout }: { user: User; onLogout: () => void }) {
     { id: "events", label: "Event log", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
     { id: "agents", label: "Agenci", icon: "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
     { id: "wiadomosci", label: "Wiadomości", icon: "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" },
+    { id: "dokumenty", label: "Dokumenty", icon: "M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+    { id: "sprawozdania", label: "Sprawozdania", icon: "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
   ];
   const reload = useCallback(async () => {
     try {
@@ -380,6 +417,8 @@ function MasterApp({ user, onLogout }: { user: User; onLogout: () => void }) {
       {view === "events" && <MasterEvents />}
       {view === "agents" && <MasterAgents />}
       {view === "wiadomosci" && <MasterWiadomosci />}
+      {view === "dokumenty" && <MasterDokumenty />}
+      {view === "sprawozdania" && <MasterSprawozdania />}
     </NavShell>
   );
 }
@@ -1741,6 +1780,8 @@ function InvestorApp({ user, onLogout }: { user: User; onLogout: () => void }) {
     { id: "finanse", label: "Finanse", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
     { id: "umowy", label: "Umowy", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
     { id: "wiadomosci", label: "Wiadomości", icon: "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" },
+    { id: "dokumenty", label: "Dokumenty", icon: "M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+    { id: "sprawozdania", label: "Sprawozdania", icon: "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
   ];
   const reload = useCallback(async () => {
     try {
@@ -1762,6 +1803,8 @@ function InvestorApp({ user, onLogout }: { user: User; onLogout: () => void }) {
       {view === "finanse" && <InvestorFinanse />}
       {view === "umowy" && <InvestorUmowy />}
       {view === "wiadomosci" && <InvestorWiadomosci />}
+      {view === "dokumenty" && <InvestorDokumenty />}
+      {view === "sprawozdania" && <InvestorSprawozdania />}
     </NavShell>
   );
 }
@@ -2153,5 +2196,177 @@ function MasterWiadomosci() {
   );
 }
 
+
+// ─── PROMPT 12: Dokumenty (archiwum, wzór eMieszkaniec) ──────────────────────
+const DOC_CAT_LABELS: Record<string, string> = { umowa: "Umowa", protokol: "Protokół", regulamin: "Regulamin", sprawozdanie: "Sprawozdanie", inne: "Inne" };
+const fmtBytes = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+
+function DocTable({ docs, showOrg, onDelete }: { docs: any[]; showOrg?: boolean; onDelete?: (id: number) => void }) {
+  return (
+    <table className="w-full text-sm">
+      <thead><tr className="text-left text-gray-500 text-xs"><th>Tytuł</th><th>Kategoria</th>{showOrg && <th>Odbiorca</th>}<th>Plik</th><th className="text-right">Rozmiar</th><th className="text-right">Data</th><th></th></tr></thead>
+      <tbody>
+        {docs.map((d: any) => (
+          <tr key={d.id} className="border-t border-gray-100">
+            <td className="py-1.5 font-medium">{d.title}</td>
+            <td>{DOC_CAT_LABELS[d.category] ?? d.category}</td>
+            {showOrg && <td>{d.org_name ?? "Wszyscy inwestorzy"}</td>}
+            <td><a href={`/api/documents/${d.id}/download`} target="_blank" className="text-green-700 hover:underline">{d.filename}</a></td>
+            <td className="text-right">{fmtBytes(Number(d.size_bytes))}</td>
+            <td className="text-right">{new Date(d.created_at).toLocaleDateString("pl-PL")}</td>
+            <td className="text-right">{onDelete && <button onClick={() => onDelete(d.id)} className="text-xs text-red-600 hover:underline">Usuń</button>}</td>
+          </tr>
+        ))}
+        {docs.length === 0 && <tr><td colSpan={showOrg ? 7 : 6} className="py-2 text-gray-500">Brak dokumentów</td></tr>}
+      </tbody>
+    </table>
+  );
+}
+
+function MasterDokumenty() {
+  const [docs, setDocs] = useState<any[] | null>(null);
+  const [orgs, setOrgs] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("umowa");
+  const [orgId, setOrgId] = useState<string>("");
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(async () => {
+    try {
+      const [d, t]: any[] = await Promise.all([api("/api/admin/documents"), api("/api/admin/messages")]);
+      setDocs(d.documents); setOrgs(t.threads);
+    } catch (e: any) { setError(e.message); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  const upload = async () => {
+    if (!file || !title.trim()) { setError("Podaj tytuł i wybierz plik."); return; }
+    if (file.size > 6_000_000) { setError("Plik przekracza limit 6 MB."); return; }
+    setBusy(true); setError(null); setInfo(null);
+    try {
+      const buf = await file.arrayBuffer();
+      let bin = ""; const arr = new Uint8Array(buf);
+      for (let i = 0; i < arr.length; i += 32768) bin += String.fromCharCode(...arr.subarray(i, i + 32768));
+      await api("/api/admin/documents", {
+        method: "POST",
+        body: JSON.stringify({ orgId: orgId ? Number(orgId) : null, title, category, filename: file.name, mimeType: file.type || "application/octet-stream", contentBase64: btoa(bin) }),
+      });
+      setInfo(`Dokument „${title}” zapisany.`); setTitle(""); setFile(null);
+      await load();
+    } catch (e: any) { setError(e.message); }
+    setBusy(false);
+  };
+  const remove = async (id: number) => {
+    if (!window.confirm("Usunąć dokument?")) return;
+    try { await api(`/api/admin/documents/${id}`, { method: "DELETE" }); await load(); } catch (e: any) { setError(e.message); }
+  };
+  if (!docs) return <Loading />;
+  return (
+    <div>
+      {error && <ErrorBox message={error} />}
+      {info && <div className="mb-4 text-sm bg-green-50 border border-green-200 text-green-800 rounded-lg p-3">{info}</div>}
+      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+        <h3 className="font-semibold text-sm mb-3">Dodaj dokument (max 6 MB)</h3>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Tytuł dokumentu" className="border border-gray-300 rounded-md px-3 py-2 text-sm" />
+          <select value={category} onChange={(e) => setCategory(e.target.value)} className="border border-gray-300 rounded-md px-3 py-2 text-sm">
+            {Object.entries(DOC_CAT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <select value={orgId} onChange={(e) => setOrgId(e.target.value)} className="border border-gray-300 rounded-md px-3 py-2 text-sm">
+            <option value="">Wszyscy inwestorzy</option>
+            {orgs.map((o: any) => <option key={o.org_id} value={o.org_id}>{o.name}</option>)}
+          </select>
+          <input type="file" onChange={(e) => setFile((e.target as HTMLInputElement).files?.[0] ?? null)} className="text-sm" />
+        </div>
+        <button onClick={upload} disabled={busy} className="mt-3 px-4 py-2 bg-gray-900 text-white rounded-md text-sm hover:bg-gray-700 disabled:opacity-50">{busy ? "Wysyłam…" : "Zapisz dokument"}</button>
+      </div>
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <h3 className="font-semibold text-sm mb-3">Archiwum</h3>
+        <DocTable docs={docs} showOrg onDelete={remove} />
+      </div>
+    </div>
+  );
+}
+
+function InvestorDokumenty() {
+  const [docs, setDocs] = useState<any[] | null>(null);
+  useEffect(() => { api("/api/investor/documents").then((d: any) => setDocs(d.documents)).catch(() => setDocs([])); }, []);
+  if (!docs) return <Loading />;
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <h3 className="font-semibold text-sm mb-3">Dokumenty (Twoje + ogólne)</h3>
+      <DocTable docs={docs} />
+    </div>
+  );
+}
+
+// ─── PROMPT 12: Sprawozdania miesięczne ──────────────────────────────────────
+function InvestorSprawozdania() {
+  const [rows, setRows] = useState<any[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    try { const d: any = await api("/api/investor/statements"); setRows(d.periods); } catch (e: any) { setError(e.message); setRows([]); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  const accept = async (period: string) => {
+    if (!window.confirm(`Akceptujesz rozliczenie za ${period}?`)) return;
+    try { await api(`/api/investor/statements/${period}/accept`, { method: "POST" }); await load(); } catch (e: any) { setError(e.message); }
+  };
+  if (!rows) return <Loading />;
+  return (
+    <div>
+      {error && <ErrorBox message={error} />}
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <h3 className="font-semibold text-sm mb-3">Rozliczenia miesięczne</h3>
+        <table className="w-full text-sm">
+          <thead><tr className="text-left text-gray-500 text-xs"><th>Okres</th><th className="text-right">Pozycje</th><th className="text-right">Saldo netto</th><th>Status</th><th className="text-right">Akcje</th></tr></thead>
+          <tbody>
+            {rows.map((r: any) => (
+              <tr key={r.period} className="border-t border-gray-100">
+                <td className="py-1.5 font-medium">{r.period}</td>
+                <td className="text-right">{r.entries}</td>
+                <td className={`text-right ${Number(r.net) >= 0 ? "text-green-700" : "text-red-700"}`}>{fmt(Number(r.net))}</td>
+                <td>{r.accepted_at ? <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">zaakceptowane</span> : <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">oczekuje</span>}</td>
+                <td className="text-right space-x-2">
+                  <a href={`/api/investor/statements/${r.period}/html`} target="_blank" className="text-green-700 hover:underline text-xs">Otwórz</a>
+                  {!r.accepted_at && <button onClick={() => accept(r.period)} className="text-xs px-2 py-1 bg-gray-900 text-white rounded hover:bg-gray-700">Akceptuję</button>}
+                </td>
+              </tr>
+            ))}
+            {rows.length === 0 && <tr><td colSpan={5} className="py-2 text-gray-500">Brak rozliczeń — pojawią się po naliczeniach lub zamknięciu cyklu</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function MasterSprawozdania() {
+  const [rows, setRows] = useState<any[] | null>(null);
+  useEffect(() => { api("/api/admin/statements").then((d: any) => setRows(d.statements)).catch(() => setRows([])); }, []);
+  if (!rows) return <Loading />;
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <h3 className="font-semibold text-sm mb-3">Sprawozdania inwestorów (status akceptacji)</h3>
+      <table className="w-full text-sm">
+        <thead><tr className="text-left text-gray-500 text-xs"><th>Okres</th><th>Inwestor</th><th className="text-right">Pozycje</th><th className="text-right">Saldo netto</th><th>Status</th><th className="text-right">Podgląd</th></tr></thead>
+        <tbody>
+          {rows.map((r: any, i: number) => (
+            <tr key={i} className="border-t border-gray-100">
+              <td className="py-1.5 font-medium">{r.period}</td>
+              <td>{r.org_name}</td>
+              <td className="text-right">{r.entries}</td>
+              <td className={`text-right ${Number(r.net) >= 0 ? "text-green-700" : "text-red-700"}`}>{fmt(Number(r.net))}</td>
+              <td>{r.accepted_at ? <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">zaakceptowane {new Date(Number(r.accepted_at)).toLocaleDateString("pl-PL")}</span> : <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">oczekuje</span>}</td>
+              <td className="text-right"><a href={`/api/admin/statements/${r.org_id}/${r.period}/html`} target="_blank" className="text-green-700 hover:underline text-xs">Otwórz</a></td>
+            </tr>
+          ))}
+          {rows.length === 0 && <tr><td colSpan={6} className="py-2 text-gray-500">Brak danych</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 createRoot(document.getElementById("root")!).render(<App />);

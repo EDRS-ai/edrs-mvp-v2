@@ -193,3 +193,29 @@ POST /api/admin/dev/simulate (master)
 - seed-finance: 2 kontrakty lease, 6 stawek, 6 naliczeń (cykl OPŁATY-2026-08, 3 orgi)
 - Inwestor A: saldo −18 634,50 zł brutto (LEASE_RENT+SERVICE_FEE+ELECTRICITY_FEE, 7 pkt × 505 zł netto + VAT) → „Zapłać (PolCard)" → PAYMENT_RECEIVED → **saldo 0,00 zł**, płatność #1 opłacona
 - Umowy: 1 kontrakt + 3 stawki widoczne; Wiadomości: inwestor→master (unread badge) →odpowiedź mastera — obie strony OK
+
+## PROMPT 12 — Dokumenty, sprawozdania z akceptacją, landing kafelkowy, mobile (wzór eMieszkaniec)
+
+Dyrektywa Maćka: „platforma powinna wyglądać i działać jak emieszkaniec.pl". Mapowanie modułów w `documents/personal-0DaTPe4r/edrs/2026-08-11_eMieszkaniec_mapowanie_PROMPT12.md`.
+
+### Archiwum dokumentów
+- Tabele `documents` + `doc_blobs` (migracja 0003). Bajty shardowane ≤1.8 MB/wiersz; limit pliku 6 MB (upload JSON base64). `org_id NULL` = dokument globalny.
+- Master: upload (tytuł, kategoria, odbiorca org/wszyscy) + archiwum + soft delete. Inwestor: lista własne+globalne, download przez `/api/documents/:id/download` (auth: master lub org właściciela; inline content-disposition).
+- Audyt: eventy `document_uploaded` / `document_deleted` z actor_id.
+
+### Sprawozdania miesięczne z akceptacją (odpowiednik „uchwał")
+- `renderStatementHtml`: rozliczenie per org per okres (YYYY-MM) renderowane z ledgera — uznania/obciążenia/saldo netto+brutto, branding edrs.io, stopka o hash chain. Czysty widok, zero nowej logiki księgowej.
+- Akceptacja: `statement_acceptances` (unique org+period) + event `statement_accepted`. Inwestor: lista okresów → Otwórz/Akceptuję. Master: status akceptacji wszystkich inwestorów + podgląd.
+
+### Wygląd (eMieszkaniec-style)
+- Landing: sekcja „Poznaj możliwości Twojego nowego systemu" — 8 kafelków modułów (ewidencja, mapa live, naliczenia, e-kartoteka, płatności, sprawozdania, dokumenty, komunikacja).
+- NavShell: mobile drawer (hamburger < lg, overlay, auto-close po wyborze), header i main responsywne.
+
+### E2E (2026-08-11, browser-verified, zero błędów JS)
+- Upload regulaminu (master, globalny) → widoczny i pobieralny u inwestora (bajty zgodne z treścią)
+- Sprawozdanie 2026-08 Inwestora A: uznania 18 634,50 / obciążenia 15 150,00 / saldo 3484,50 zł → Akceptuję → status „zaakceptowane" (widoczny też u mastera)
+- Landing: 8 kafelków renderuje się; mobile: drawer działa (hamburger → wybór → zamknięcie)
+
+### Znane ograniczenia
+- Limit dokumentu 6 MB (base64 przez JSON); większe pliki = multipart/chunked upload w przyszłym PROMPT.
+- Statement grupuje po miesiącu `booking_date` (fallback `created_at`) — wpisy bez booking_date liczą się do miesiąca utworzenia.
