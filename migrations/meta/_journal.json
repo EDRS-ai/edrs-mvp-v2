@@ -15,6 +15,13 @@
       "when": 1786408476188,
       "tag": "0001_unify_points_locations",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786409849240,
+      "tag": "0002_payments_messages",
+      "breakpoints": true
     }
   ]
 }

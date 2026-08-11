@@ -170,3 +170,26 @@ POST /api/admin/dev/simulate (master)
 - Inwestor nie widzi eventu kategorii `cycle` na streamie (kredyty mają payload bez point_id) — przychód w REST; PROMPT 9 doda `party_org_id` do payloadów i scoping kategorii cycle.
 - Legacy `points` + `investors` nadal istnieją (read-path starych endpointów) — pełna konsolidacja na organizations/locations = PROMPT 9.
 - Naliczenia kosztowe (raty/serwis/prąd), saldo i statement inwestora = PROMPT 9; bramka płatności (PolCard/Fiserv, org 8 w seedzie) = PROMPT 10.
+
+## PROMPT 9/10/11 — Finanse, płatności (PolCard sandbox), wiadomości (MVP complete)
+
+### PROMPT 9 — Naliczenia, saldo, netting
+- `src/lib/finance.ts`: naliczenia miesięczne WYŁĄCZNIE z `rate_cards` (collection_model=`monthly_fixed` na kontrakcie `lease` inwestora; fraction LEASE→LEASE_RENT, SERVICE→SERVICE_FEE, ELECTRICITY→ELECTRICITY_FEE — rozszerzenie katalogu typów z PROMPT 3). Zero stawek w kodzie.
+- Kontener naliczeń: cykl `OPŁATY-YYYY-MM` (cycle_type platform). Wpisy przez `insertLedgerEntry` (hash chain). Idempotencja: `end_to_end_id = charge:{TYP}:{org}:{okres}`.
+- Punkty SYN-% NIE są naliczane (dane syntetyczne demo).
+- Saldo = SUM(credit) − SUM(debit) per `party_org_id`. Netting: opłaty potrącane z przychodów kaucyjnych; saldo ujemne → płatność.
+- Agent 4 `monthly_charges` (cron godzinowy, idempotentny) — naliczenia generują się same 1. dnia miesiąca bez ręcznej akcji.
+- Endpointy: `GET /api/investor/finance` (saldo+wyciąg+płatności), `GET /api/investor/contracts` (umowy+stawki), `POST /api/admin/dev/seed-finance` (kontrakty lease + stawki demo 400/60/45 zł/pkt/mc + naliczenia — stawki trafiają do DB, idempotentne).
+
+### PROMPT 10 — Płatności (PolCard/Fiserv — tryb sandbox)
+- Tabela `payments` (migracja 0002). Flow: saldo brutto < 0 → `POST /api/investor/payments` (intent pending, kwota = −saldo) → `POST /api/investor/payments/:id/confirm` (sandbox) → wpis `PAYMENT_RECEIVED` (credit, VAT 0, hash chain, `end_to_end_id = payment:{id}`) → saldo 0. Podwójny confirm = no-op.
+- Eventy audytowe: `payment_created`, `payment_confirmed` (actor_id inwestora).
+- **Produkcyjnie**: confirm zastępuje webhook PolCard/Fiserv (org 8 w seedzie). Wymaga umowy PSP i onboardingu merchanta — proces biznesowy, nie techniczny. Dokumenty Fiserv/Polcard (umowa główna, polecenie zapłaty, regulacje produktowe) są w workspace usera.
+
+### PROMPT 11 — Wiadomości inwestor ↔ operator
+- Tabela `messages` (wątek = org inwestora). `GET/POST /api/investor/messages`, `GET/POST /api/admin/messages` (master: lista wątków z licznikiem nieprzeczytanych + wątek per org). Odczyt oznacza read_at drugiej strony. In-app only — zero wysyłek zewnętrznych.
+
+### E2E (2026-08-11, browser-verified, zero błędów JS)
+- seed-finance: 2 kontrakty lease, 6 stawek, 6 naliczeń (cykl OPŁATY-2026-08, 3 orgi)
+- Inwestor A: saldo −18 634,50 zł brutto (LEASE_RENT+SERVICE_FEE+ELECTRICITY_FEE, 7 pkt × 505 zł netto + VAT) → „Zapłać (PolCard)" → PAYMENT_RECEIVED → **saldo 0,00 zł**, płatność #1 opłacona
+- Umowy: 1 kontrakt + 3 stawki widoczne; Wiadomości: inwestor→master (unread badge) →odpowiedź mastera — obie strony OK

@@ -20,6 +20,7 @@ import { runSettlementEngine, approveCycle, reopenCycle, getLedgerForCycle, inse
 import { runFullReconciliation, transitionDisputeState, executeDefaultAction, getAlertLevel, isOverdue, businessDaysBetween } from "./lib/reconciliation";
 import { buildEventStream, mapSnapshot, parseCats, resolveCursor, emitEvent as emitRealtimeEvent, emitLocationUpdate } from "./lib/realtime";
 import { runAllAgents } from "./lib/agents";
+import { investorBalance, investorStatement, paymentsFor, createPayment, confirmPayment, generateMonthlyCharges } from "./lib/finance";
 
 type Bindings = { sql: any; websocket: any; ctx: AppCtx };
 
@@ -549,7 +550,7 @@ export function createApp() {
   // (hash chain ledgera), dispute deadlines. Cron co godzinę (onSchedule) + ręczny
   // trigger na demo/debug. Każdy run audytowalny w event_log (agent.run_completed).
   app.post("/api/admin/agents/run", requireMaster, async (c) => {
-    const { results, bucket } = runAllAgents(c.env, { force: true });
+    const { results, bucket } = await runAllAgents(c.env, { force: true });
     return c.json({ ok: true, bucket, results });
   });
 
@@ -1322,6 +1323,127 @@ export function createApp() {
     return c.json({ collections: rows, totalPackages: rows.reduce((sum: number, r: any) => sum + (r.packages ?? 0), 0) });
   });
 
+  // ─── PROMPT 9/10/11: finanse inwestora, płatności (PolCard sandbox), wiadomości ───
+  app.get("/api/investor/finance", requireInvestor, async (c) => {
+    const me = c.get(APP_USER_KEY);
+    const orgId = investorOrgIdOf(c.env, me.investorId);
+    if (!orgId) return c.json({ error: "no_org_mapping" }, 403);
+    return c.json({
+      orgId,
+      balance: investorBalance(c.env, orgId),
+      statement: investorStatement(c.env, orgId, 100),
+      payments: paymentsFor(c.env, orgId, 50),
+    });
+  });
+
+  app.post("/api/investor/payments", requireInvestor, async (c) => {
+    const me = c.get(APP_USER_KEY);
+    const orgId = investorOrgIdOf(c.env, me.investorId);
+    if (!orgId) return c.json({ error: "no_org_mapping" }, 403);
+    const r = createPayment(c.env, orgId, me.id);
+    if ("error" in r) return c.json(r, 400);
+    logEvent(c.env, { eventType: "payment_created", payload: { paymentId: r.id, orgId, amountGrosze: r.amountGrosze, provider: "polcard_sandbox" }, actorId: me.id });
+    return c.json({ ok: true, ...r });
+  });
+
+  app.post("/api/investor/payments/:id/confirm", requireInvestor, async (c) => {
+    const me = c.get(APP_USER_KEY);
+    const orgId = investorOrgIdOf(c.env, me.investorId);
+    if (!orgId) return c.json({ error: "no_org_mapping" }, 403);
+    const pid = Number(c.req.param("id"));
+    const r = await confirmPayment(c.env, orgId, pid);
+    if (!r.ok) return c.json(r, 400);
+    logEvent(c.env, { eventType: "payment_confirmed", payload: { paymentId: pid, orgId, provider: "polcard_sandbox" }, actorId: me.id });
+    return c.json(r);
+  });
+
+  app.get("/api/investor/contracts", requireInvestor, async (c) => {
+    const me = c.get(APP_USER_KEY);
+    const orgId = investorOrgIdOf(c.env, me.investorId);
+    if (!orgId) return c.json({ error: "no_org_mapping" }, 403);
+    const contractRows = c.env.sql.query<any>(
+      "SELECT ct.id, ct.type, ct.valid_from, ct.valid_to, ct.notice_period_days, ct.status, oa.name AS party_a_name " +
+      "FROM contracts ct JOIN organizations oa ON oa.id = ct.party_a_org_id WHERE ct.party_b_org_id = ? AND ct.deleted_at IS NULL ORDER BY ct.id",
+      [orgId]
+    );
+    const rateRows = c.env.sql.query<any>(
+      "SELECT rc.contract_id, rc.fraction, rc.collection_model, rc.rate_value, rc.rate_unit, rc.valid_from, rc.valid_to FROM rate_cards rc " +
+      "JOIN contracts ct ON ct.id = rc.contract_id WHERE ct.party_b_org_id = ? AND rc.deleted_at IS NULL ORDER BY rc.contract_id, rc.id",
+      [orgId]
+    );
+    return c.json({ contracts: contractRows, rates: rateRows });
+  });
+
+  app.get("/api/investor/messages", requireInvestor, async (c) => {
+    const me = c.get(APP_USER_KEY);
+    const orgId = investorOrgIdOf(c.env, me.investorId);
+    if (!orgId) return c.json({ error: "no_org_mapping" }, 403);
+    const rows = c.env.sql.query<any>("SELECT id, sender_role, body, created_at, read_at FROM messages WHERE org_id = ? ORDER BY id ASC LIMIT 200", [orgId]);
+    c.env.sql.exec("UPDATE messages SET read_at = ? WHERE org_id = ? AND sender_role = 'master' AND read_at IS NULL", [Date.now(), orgId]);
+    return c.json({ messages: rows });
+  });
+
+  app.post("/api/investor/messages", requireInvestor, async (c) => {
+    const me = c.get(APP_USER_KEY);
+    const orgId = investorOrgIdOf(c.env, me.investorId);
+    if (!orgId) return c.json({ error: "no_org_mapping" }, 403);
+    const { body } = await c.req.json<{ body: string }>();
+    if (!body?.trim()) return c.json({ error: "empty" }, 400);
+    c.env.sql.exec("INSERT INTO messages (org_id, sender_user_id, sender_role, body, created_at) VALUES (?, ?, 'investor', ?, ?)", [orgId, me.id, body.trim().slice(0, 4000), Date.now()]);
+    return c.json({ ok: true });
+  });
+
+  app.get("/api/admin/messages", requireMaster, async (c) => {
+    const orgIdParam = c.req.query("orgId");
+    if (orgIdParam) {
+      const orgId = Number(orgIdParam);
+      const rows = c.env.sql.query<any>("SELECT id, sender_role, body, created_at, read_at FROM messages WHERE org_id = ? ORDER BY id ASC LIMIT 200", [orgId]);
+      c.env.sql.exec("UPDATE messages SET read_at = ? WHERE org_id = ? AND sender_role = 'investor' AND read_at IS NULL", [Date.now(), orgId]);
+      return c.json({ messages: rows });
+    }
+    const threads = c.env.sql.query<any>(
+      "SELECT o.id AS org_id, o.name, COUNT(m.id) AS total, COALESCE(SUM(CASE WHEN m.sender_role='investor' AND m.read_at IS NULL THEN 1 ELSE 0 END),0) AS unread, MAX(m.created_at) AS last_at " +
+      "FROM organizations o LEFT JOIN messages m ON m.org_id = o.id WHERE o.type = 'investor' GROUP BY o.id ORDER BY last_at DESC"
+    );
+    return c.json({ threads });
+  });
+
+  app.post("/api/admin/messages", requireMaster, async (c) => {
+    const me = c.get(APP_USER_KEY);
+    const { orgId, body } = await c.req.json<{ orgId: number; body: string }>();
+    if (!orgId || !body?.trim()) return c.json({ error: "missing_fields" }, 400);
+    c.env.sql.exec("INSERT INTO messages (org_id, sender_user_id, sender_role, body, created_at) VALUES (?, ?, 'master', ?, ?)", [orgId, me.id, body.trim().slice(0, 4000), Date.now()]);
+    return c.json({ ok: true });
+  });
+
+  // DEV: seed finansów demo — kontrakty lease + stawki monthly_fixed (stawki w DB,
+  // nie w kodzie, zgodnie z regułą #1) + naliczenia bieżącego miesiąca. Idempotentne.
+  app.post("/api/admin/dev/seed-finance", requireMaster, async (c) => {
+    const now = Date.now();
+    const validFrom = Date.UTC(2026, 0, 1);
+    const invOrgs = c.env.sql.query<{ id: number }>("SELECT id FROM organizations WHERE type = 'investor'");
+    let contractsCreated = 0, ratesCreated = 0;
+    for (const o of invOrgs) {
+      const ex = c.env.sql.query<{ id: number }>("SELECT id FROM contracts WHERE type = 'lease' AND party_b_org_id = ? AND status = 'active'", [o.id]);
+      let contractId: number;
+      if (ex.length > 0) { contractId = Number(ex[0].id); }
+      else {
+        c.env.sql.exec("INSERT INTO contracts (type, party_a_org_id, party_b_org_id, valid_from, notice_period_days, status, created_at, updated_at, version) VALUES ('lease', 1, ?, ?, 30, 'active', ?, ?, 1)", [o.id, validFrom, now, now]);
+        contractId = Number(c.env.sql.query<{ id: number }>("SELECT last_insert_rowid() AS id")[0].id);
+        contractsCreated++;
+      }
+      const demoRates: Array<[string, number]> = [["LEASE", 400], ["SERVICE", 60], ["ELECTRICITY", 45]];
+      for (const [fraction, value] of demoRates) {
+        const rex = c.env.sql.query<{ id: number }>("SELECT id FROM rate_cards WHERE contract_id = ? AND fraction = ? AND collection_model = 'monthly_fixed'", [contractId, fraction]);
+        if (rex.length > 0) continue;
+        c.env.sql.exec("INSERT INTO rate_cards (contract_id, valid_from, fraction, collection_model, packaging_type, rate_value, rate_unit, currency, description, created_at, updated_at, version) VALUES (?, ?, ?, 'monthly_fixed', 'n/a', ?, 'PLN_PER_POINT_MONTH', 'PLN', 'Opłata miesięczna per punkt (demo)', ?, ?, 1)", [contractId, validFrom, fraction, value, now, now]);
+        ratesCreated++;
+      }
+    }
+    const charges = await generateMonthlyCharges(c.env);
+    return c.json({ ok: true, contractsCreated, ratesCreated, charges });
+  });
+
   app.post("/admin/reseed", async (c) => {
     if (!c.env.ctx.session?.isOwner) return c.json({ error: "forbidden" }, 403);
     await reseed(c.env);
@@ -1521,6 +1643,6 @@ export default {
   // Hook MUSI nazywać się onSchedule (nie `scheduled`) — kontrakt Sauna Apps.
   async onSchedule(env: any, _ctx: any) {
     await ensureSeeded(env);
-    runAllAgents(env);
+    await runAllAgents(env);
   },
 } satisfies AppHandler;

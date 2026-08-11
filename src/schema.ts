@@ -657,3 +657,45 @@ export const membershipsRelations = relations(memberships, ({ one }) => ({
   user: one(users, { fields: [memberships.userId], references: [users.id] }),
   org: one(organizations, { fields: [memberships.orgId], references: [organizations.id] }),
 }));
+
+
+// ─── PROMPT 10: payments — bramka płatności (PolCard/Fiserv; MVP = sandbox) ─────
+// Flow: saldo ujemne → intent (pending) → confirm (sandbox) → wpis PAYMENT_RECEIVED
+// w ledger (credit, hash chain) → saldo wyrównane. Produkcyjnie: wymiana confirm
+// na webhook PolCard po podpisaniu umowy PSP (org 8 w seedzie = PolCard/Fiserv).
+export const payments = sqliteTable("payments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  orgId: integer("org_id").notNull().references(() => organizations.id),
+  amountGrosze: integer("amount_grosze").notNull(),
+  status: text("status").notNull().default("pending"), // pending | paid | failed | cancelled
+  provider: text("provider").notNull().default("polcard_sandbox"),
+  reference: text("reference").notNull(),
+  ledgerEntryId: integer("ledger_entry_id"),
+  createdBy: integer("created_by"),
+  createdAt: integer("created_at").notNull(),
+  paidAt: integer("paid_at"),
+}, (t) => ({
+  paymentsOrgIdx: index("payments_org_idx").on(t.orgId),
+  paymentsRefIdx: uniqueIndex("payments_reference_idx").on(t.reference),
+}));
+
+// ─── PROMPT 11: messages — skrzynka inwestor ↔ operator (in-app) ─────────────
+export const messages = sqliteTable("messages", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  orgId: integer("org_id").notNull().references(() => organizations.id),
+  senderUserId: integer("sender_user_id").notNull(),
+  senderRole: text("sender_role").notNull(), // master | investor
+  body: text("body").notNull(),
+  readAt: integer("read_at"),
+  createdAt: integer("created_at").notNull(),
+}, (t) => ({
+  messagesOrgIdx: index("messages_org_idx").on(t.orgId),
+  messagesCreatedIdx: index("messages_created_idx").on(t.createdAt),
+}));
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  org: one(organizations, { fields: [payments.orgId], references: [organizations.id] }),
+}));
+export const messagesRelations = relations(messages, ({ one }) => ({
+  org: one(organizations, { fields: [messages.orgId], references: [organizations.id] }),
+}));

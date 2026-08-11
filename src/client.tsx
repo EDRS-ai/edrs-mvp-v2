@@ -358,6 +358,7 @@ function MasterApp({ user, onLogout }: { user: User; onLogout: () => void }) {
     { id: "catalog", label: "Katalog EAN", icon: "M5 5v14M9 5v14M11 5v14M14 5v14M18 5v14" },
     { id: "events", label: "Event log", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
     { id: "agents", label: "Agenci", icon: "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
+    { id: "wiadomosci", label: "Wiadomości", icon: "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" },
   ];
   const reload = useCallback(async () => {
     try {
@@ -378,6 +379,7 @@ function MasterApp({ user, onLogout }: { user: User; onLogout: () => void }) {
       {view === "catalog" && <MasterCatalog />}
       {view === "events" && <MasterEvents />}
       {view === "agents" && <MasterAgents />}
+      {view === "wiadomosci" && <MasterWiadomosci />}
     </NavShell>
   );
 }
@@ -1736,6 +1738,9 @@ function InvestorApp({ user, onLogout }: { user: User; onLogout: () => void }) {
     { id: "odbiory", label: "Odbiory", icon: "M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" },
     { id: "rozliczenia", label: "Rozliczenia", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" },
     { id: "faktury", label: "Faktury", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+    { id: "finanse", label: "Finanse", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+    { id: "umowy", label: "Umowy", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+    { id: "wiadomosci", label: "Wiadomości", icon: "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" },
   ];
   const reload = useCallback(async () => {
     try {
@@ -1754,6 +1759,9 @@ function InvestorApp({ user, onLogout }: { user: User; onLogout: () => void }) {
       {view === "odbiory" && <InvestorOdbiory />}
       {view === "rozliczenia" && <InvestorRozliczenia overview={overview} />}
       {view === "faktury" && <InvestorFaktury />}
+      {view === "finanse" && <InvestorFinanse />}
+      {view === "umowy" && <InvestorUmowy />}
+      {view === "wiadomosci" && <InvestorWiadomosci />}
     </NavShell>
   );
 }
@@ -1942,5 +1950,208 @@ function DriverApp({ user, onLogout }: { user: User; onLogout: () => void }) {
     </div>
   );
 }
+
+// ─── PROMPT 9/10: Finanse inwestora (saldo, netting, płatność PolCard sandbox) ─
+function InvestorFinanse() {
+  const [data, setData] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(async () => {
+    try { setError(null); setData(await api("/api/investor/finance")); }
+    catch (e: any) { setError(e.message); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  if (!data) return <Loading />;
+  const bal = data.balance;
+  const due = bal.grossGrosze < 0 ? -bal.grossGrosze : 0;
+  const pay = async () => {
+    if (!window.confirm(`Zapłacić ${fmt(due)} przez PolCard (sandbox)?`)) return;
+    setBusy(true); setInfo(null);
+    try {
+      const p: any = await api("/api/investor/payments", { method: "POST" });
+      await api(`/api/investor/payments/${p.id}/confirm`, { method: "POST" });
+      setInfo(`Płatność ${fmt(p.amountGrosze)} zaksięgowana (PolCard sandbox).`);
+      await load();
+    } catch (e: any) { setError(e.message); }
+    setBusy(false);
+  };
+  return (
+    <div>
+      {error && <ErrorBox message={error} />}
+      {info && <div className="mb-4 text-sm bg-green-50 border border-green-200 text-green-800 rounded-lg p-3">{info}</div>}
+      <div className="grid grid-cols-3 gap-4 mb-4">
+        <KpiCard label="Saldo netto" value={fmt(bal.netGrosze)} sub={bal.netGrosze >= 0 ? "do wypłaty" : "do zapłaty"} />
+        <KpiCard label="Saldo brutto" value={fmt(bal.grossGrosze)} sub="uznania − obciążenia" />
+        <div className="bg-white border border-gray-200 rounded-lg p-4 flex flex-col justify-between">
+          <div className="text-xs text-gray-500 mb-1">Płatność</div>
+          {due > 0 ? (
+            <button onClick={pay} disabled={busy} className="text-sm px-4 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-700 disabled:opacity-50">
+              {busy ? "Przetwarzam…" : `Zapłać ${fmt(due)} (PolCard)`}
+            </button>
+          ) : (
+            <div className="text-sm text-gray-600">Brak zaległości — netting pokrywa opłaty z przychodów kaucyjnych.</div>
+          )}
+          <div className="text-[10px] text-gray-400 mt-2">Tryb sandbox. Produkcyjnie: PolCard/Fiserv po umowie PSP.</div>
+        </div>
+      </div>
+      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+        <h3 className="font-semibold text-sm mb-3">Wyciąg (ostatnie pozycje)</h3>
+        <table className="w-full text-xs">
+          <thead><tr className="text-left text-gray-500"><th>Typ</th><th>Cykl</th><th>Kierunek</th><th className="text-right">Netto</th><th className="text-right">VAT</th><th className="text-right">Brutto</th><th className="text-right">Data</th></tr></thead>
+          <tbody>
+            {data.statement.map((s: any) => (
+              <tr key={s.id} className="border-t border-gray-100">
+                <td className="py-1">{s.entry_type}</td>
+                <td>{s.cycle_label ?? "—"}</td>
+                <td className={s.direction === "credit" ? "text-green-700" : "text-red-700"}>{s.direction === "credit" ? "uznanie" : "obciążenie"}</td>
+                <td className="text-right">{fmt(s.amount_net)}</td>
+                <td className="text-right">{fmt(s.vat_amount)}</td>
+                <td className="text-right">{fmt(s.amount_gross)}</td>
+                <td className="text-right">{new Date(s.booking_date ?? s.created_at).toLocaleDateString("pl-PL")}</td>
+              </tr>
+            ))}
+            {data.statement.length === 0 && <tr><td colSpan={7} className="py-2 text-gray-500">Brak pozycji — naliczenia pojawią się po wygenerowaniu opłat miesięcznych</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <h3 className="font-semibold text-sm mb-3">Historia płatności</h3>
+        <table className="w-full text-xs">
+          <thead><tr className="text-left text-gray-500"><th>ID</th><th className="text-right">Kwota</th><th>Status</th><th>Dostawca</th><th className="text-right">Utworzona</th><th className="text-right">Opłacona</th></tr></thead>
+          <tbody>
+            {data.payments.map((p: any) => (
+              <tr key={p.id} className="border-t border-gray-100">
+                <td className="py-1">#{p.id}</td>
+                <td className="text-right">{fmt(p.amount_grosze)}</td>
+                <td>{p.status === "paid" ? "opłacona" : p.status}</td>
+                <td>{p.provider}</td>
+                <td className="text-right">{new Date(p.created_at).toLocaleString("pl-PL")}</td>
+                <td className="text-right">{p.paid_at ? new Date(p.paid_at).toLocaleString("pl-PL") : "—"}</td>
+              </tr>
+            ))}
+            {data.payments.length === 0 && <tr><td colSpan={6} className="py-2 text-gray-500">Brak płatności</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── PROMPT 9: Umowy inwestora ────────────────────────────────────────────────
+function InvestorUmowy() {
+  const [data, setData] = useState<any>(null);
+  useEffect(() => { api("/api/investor/contracts").then(setData).catch(() => setData({ contracts: [], rates: [] })); }, []);
+  if (!data) return <Loading />;
+  const CONTRACT_TYPES: Record<string, string> = { lease: "Dzierżawa urządzeń", implementation: "Wdrożenie", ipz_operator: "Operator IPZ", service: "Serwis", carrier: "Transport", acquirer: "Płatności" };
+  return (
+    <div>
+      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+        <h3 className="font-semibold text-sm mb-3">Umowy</h3>
+        <table className="w-full text-sm">
+          <thead><tr className="text-left text-gray-500 text-xs"><th>Typ</th><th>Druga strona</th><th>Od</th><th>Do</th><th className="text-right">Okres wypow.</th><th>Status</th></tr></thead>
+          <tbody>
+            {data.contracts.map((ct: any) => (
+              <tr key={ct.id} className="border-t border-gray-100">
+                <td className="py-1.5 font-medium">{CONTRACT_TYPES[ct.type] ?? ct.type}</td>
+                <td>{ct.party_a_name}</td>
+                <td>{new Date(ct.valid_from).toLocaleDateString("pl-PL")}</td>
+                <td>{ct.valid_to ? new Date(ct.valid_to).toLocaleDateString("pl-PL") : "bezterminowa"}</td>
+                <td className="text-right">{ct.notice_period_days} dni</td>
+                <td>{ct.status === "active" ? "aktywna" : ct.status}</td>
+              </tr>
+            ))}
+            {data.contracts.length === 0 && <tr><td colSpan={6} className="py-2 text-gray-500">Brak umów</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <h3 className="font-semibold text-sm mb-3">Stawki (rate cards)</h3>
+        <table className="w-full text-xs">
+          <thead><tr className="text-left text-gray-500"><th>Umowa</th><th>Pozycja</th><th>Model</th><th className="text-right">Stawka</th><th>Jednostka</th></tr></thead>
+          <tbody>
+            {data.rates.map((r: any, i: number) => (
+              <tr key={i} className="border-t border-gray-100">
+                <td className="py-1">#{r.contract_id}</td>
+                <td>{r.fraction}</td>
+                <td>{r.collection_model}</td>
+                <td className="text-right">{r.rate_value}</td>
+                <td>{r.rate_unit}</td>
+              </tr>
+            ))}
+            {data.rates.length === 0 && <tr><td colSpan={5} className="py-2 text-gray-500">Brak stawek</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── PROMPT 11: Wiadomości (wspólny wątek per org) ───────────────────────────
+function MessageThread({ fetchPath, postPath, postExtra }: { fetchPath: string; postPath: string; postExtra?: any }) {
+  const [msgs, setMsgs] = useState<any[] | null>(null);
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(async () => {
+    try { const d: any = await api(fetchPath); setMsgs(d.messages); } catch { setMsgs([]); }
+  }, [fetchPath]);
+  useEffect(() => { load(); }, [load]);
+  const send = async () => {
+    if (!body.trim()) return;
+    setBusy(true);
+    try { await api(postPath, { method: "POST", body: JSON.stringify({ body, ...(postExtra ?? {}) }) }); setBody(""); await load(); } catch {}
+    setBusy(false);
+  };
+  if (!msgs) return <Loading />;
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4 flex flex-col" style={{ minHeight: 360 }}>
+      <div className="flex-1 space-y-2 mb-3 overflow-y-auto" style={{ maxHeight: 420 }}>
+        {msgs.map((m: any) => (
+          <div key={m.id} className={`max-w-[75%] rounded-lg p-2.5 text-sm ${m.sender_role === "master" ? "bg-gray-100" : "bg-blue-50 ml-auto"}`}>
+            <div className="text-[10px] text-gray-500 mb-0.5">{m.sender_role === "master" ? "Operator" : "Inwestor"} · {new Date(m.created_at).toLocaleString("pl-PL")}</div>
+            <div>{m.body}</div>
+          </div>
+        ))}
+        {msgs.length === 0 && <div className="text-sm text-gray-500">Brak wiadomości — napisz pierwszą.</div>}
+      </div>
+      <div className="flex gap-2">
+        <input value={body} onChange={(e) => setBody(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Napisz wiadomość…" className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm" />
+        <button onClick={send} disabled={busy || !body.trim()} className="px-4 py-2 bg-gray-900 text-white rounded-md text-sm hover:bg-gray-700 disabled:opacity-50">Wyślij</button>
+      </div>
+    </div>
+  );
+}
+
+function InvestorWiadomosci() {
+  return <MessageThread fetchPath="/api/investor/messages" postPath="/api/investor/messages" />;
+}
+
+function MasterWiadomosci() {
+  const [threads, setThreads] = useState<any[] | null>(null);
+  const [orgId, setOrgId] = useState<number | null>(null);
+  useEffect(() => { api("/api/admin/messages").then((d: any) => setThreads(d.threads)).catch(() => setThreads([])); }, []);
+  if (!threads) return <Loading />;
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      <div className="bg-white border border-gray-200 rounded-lg p-3">
+        <h3 className="font-semibold text-sm mb-2">Wątki (inwestorzy)</h3>
+        {threads.map((t: any) => (
+          <button key={t.org_id} onClick={() => setOrgId(t.org_id)} className={`w-full text-left p-2 rounded-md text-sm mb-1 ${orgId === t.org_id ? "bg-gray-900 text-white" : "hover:bg-gray-50"}`}>
+            <div className="font-medium">{t.name}</div>
+            <div className={`text-xs ${orgId === t.org_id ? "text-gray-300" : "text-gray-500"}`}>{t.total} wiad.{Number(t.unread) > 0 ? ` · ${t.unread} nieprzecz.` : ""}</div>
+          </button>
+        ))}
+      </div>
+      <div className="col-span-2">
+        {orgId ? (
+          <MessageThread key={orgId} fetchPath={`/api/admin/messages?orgId=${orgId}`} postPath="/api/admin/messages" postExtra={{ orgId }} />
+        ) : (
+          <div className="text-sm text-gray-500 border border-dashed border-gray-300 rounded-lg p-6 text-center">Wybierz wątek</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 createRoot(document.getElementById("root")!).render(<App />);

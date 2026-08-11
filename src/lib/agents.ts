@@ -1,3 +1,4 @@
+import { generateMonthlyCharges } from "./finance";
 // PROMPT 8 — Agenci wewnętrzni (automatyzacja czasu rzeczywistego, zero LLM w pętli).
 //
 // Trzy agenty deterministyczne uruchamiane z onSchedule (cron co godzinę) oraz
@@ -196,15 +197,29 @@ export function agentDisputeDeadline(env: any, now = Date.now()): AgentResult {
   return { agent: "dispute_deadline", ranAt: now, findings, actions };
 }
 
-// ── Orkiestracja ─────────────────────────────────────────────────────────────
-export function runAllAgents(env: any, opts?: { force?: boolean }): { results: AgentResult[]; bucket: string } {
+// ── Agent 4: naliczenia miesięczne (PROMPT 9) ────────────────────────────
+async function agentMonthlyCharges(env: any, now = Date.now()): Promise<AgentResult> {
+  const findings: AgentFinding[] = [];
+  const r = await generateMonthlyCharges(env);
+  if (r.created > 0) findings.push({ kind: "charges_generated", detail: `${r.created} naliczen, cykl ${r.cycleId}` });
+  return { agent: "monthly_charges", ranAt: now, findings, actions: r.created };
+}
+
+// ── Orkiestracja ───────────────────────────────────────────────────────
+export async function runAllAgents(env: any, opts?: { force?: boolean }): Promise<{ results: AgentResult[]; bucket: string }> {
   const now = Date.now();
   // Bucket godzinowy dla idempotencji crona; force (ręczny run) używa unikalnego bucketa.
   const bucket = opts?.force ? `manual:${now}` : new Date(now).toISOString().slice(0, 13);
   const results: AgentResult[] = [];
-  for (const fn of [agentHealthCheck, agentDataQuality, agentDisputeDeadline]) {
+  const agents: Array<(e: any, n: number) => AgentResult | Promise<AgentResult>> = [
+    agentHealthCheck,
+    agentDataQuality,
+    agentDisputeDeadline,
+    agentMonthlyCharges,
+  ];
+  for (const fn of agents) {
     try {
-      const r = fn(env, now);
+      const r = await fn(env, now);
       const recorded = recordRun(env, r.agent, r, bucket);
       if (!recorded) r.skipped = true;
       results.push(r);
