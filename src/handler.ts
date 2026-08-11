@@ -1685,6 +1685,96 @@ export function createApp() {
     return c.json({ ok: true });
   });
 
+  // ── PROMPT 16: dane pokazowe (dokumenty, wiadomosci, heartbeaty) — idempotentne, v2 z polska ortografia ──
+  const SEED_DOCS: [number | null, string, string, string, string][] = [
+    [null, "Cennik usług edrs.io 2026", "inne", "cennik-2026.txt",
+      "CENNIK USŁUG edrs.io — obowiązuje od 01.01.2026\n\n1. Abonament platformy: 149 zł netto / punkt / miesiąc.\n   Obejmuje: ewidencję punktów i urządzeń, mapę live, dziennik księgowy, panel inwestora,\n   sprawozdania miesięczne, archiwum dokumentów, komunikację oraz agentów kontroli jakości danych.\n\n2. Settlement fee: 0,5% wolumenu kaucji netto — pobierane wyłącznie od faktycznie rozliczonych zwrotów.\n\n3. Bank Data Room: 0 zł — w cenie platformy.\n\n4. Wdrożenie i szkolenie zespołu: 0 zł w programie pilotażowym.\n\n5. Faktury ustrukturyzowane (KSeF): w cenie platformy, bez dodatkowych modułów.\n\nWszystkie kwoty netto, VAT 23%. Faktury wystawiane automatycznie z dziennika księgowego.\nCennik nie stanowi oferty w rozumieniu art. 66 § 1 Kodeksu cywilnego."],
+    [null, "Wzór umowy najmu powierzchni pod recyklomat", "umowa", "wzor-umowa-najmu-rvm.txt",
+      "WZÓR UMOWY NAJMU POWIERZCHNI POD URZĄDZENIE RVM\n\n§1 Przedmiot umowy\nWynajmujący oddaje w najem 2 m² powierzchni pod urządzenie do zbiórki opakowań (recyklomat)\nwraz z dostępem do przyłącza elektrycznego 230 V.\n\n§2 Czynsz\nCzynsz najmu ustalany jest zgodnie z kartoteką stawek (rate card) przypisaną do punktu\ni podlega wersjonowaniu — zmiana stawki nie wymaga aneksu, a naliczenia historyczne pozostają niezmienione.\n\n§3 Okres obowiązywania\nUmowa na 36 miesięcy, z możliwością wypowiedzenia z zachowaniem 30-dniowego okresu wypowiedzenia.\n\n§4 Obowiązki operatora\nOperator zapewnia montaż, serwis, odbiory opakowań oraz rozliczenie kaucji.\n\n§5 Rozliczenia\nRozliczenie miesięczne, netting: opłaty potrącane są z przychodów kaucyjnych punktu.\n\nDokument wzorcowy — wersja 1.0, do przeglądu prawnego."],
+    [null, "Instrukcja obsługi recyklomatu R1", "inne", "instrukcja-r1.txt",
+      "INSTRUKCJA OBSŁUGI RECYKLOMATU R1 (skrót operacyjny)\n\n1. Urządzenie przyjmuje butelki PET do 3 l, puszki aluminiowe oraz butelki szklane objęte kaucją.\n2. Opakowanie musi być puste, nieuszkodzone i mieć czytelny kod EAN.\n3. Zwrot kaucji: voucher do realizacji w punkcie lub przelew po zeskanowaniu kodu w aplikacji.\n4. Alarm zapełnienia wysyłany jest automatycznie przy 80% pojemności komory.\n5. Przy 95% i braku odbioru powyżej 48 godzin agent health-check podnosi alert do operatora.\n6. Zgłoszenia serwisowe: kontakt@edrs.io — czas reakcji 24 godziny w dni robocze.\n7. Nie wolno otwierać obudowy urządzenia bez zgody serwisu — plombowanie jest kontrolowane."],
+    [null, "Instrukcja BHP przy odbiorze opakowań", "inne", "instrukcja-bhp-odbior.txt",
+      "INSTRUKCJA BHP — ODBIÓR OPAKOWAŃ Z PUNKTU ZBIÓRKI\n\n1. Kierowca używa rękawic ochronnych oraz obuwia z podeszwą antypoślizgową.\n2. Worki są plombowane — numer plomby skanowany jest do systemu przed załadunkiem.\n3. Maksymalna masa jednego worka: 15 kg. Cięższe worki należy podzielić.\n4. Przy uszkodzonym opakowaniu szklanym: zamknąć worek, oznaczyć jako STŁUCZKA, nie przesypywać.\n5. Pojazd zabezpieczony podczas załadunku: hamulec postojowy, światła awaryjne, kamizelka odblaskowa.\n6. Po załadunku kierowca potwierdza odbiór w aplikacji — zdarzenie trafia do dziennika operacyjnego.\n7. W razie wypadku lub zdarzenia potencjalnie wypadkowego: natychmiastowe zgłoszenie do dyspozytora."],
+    [null, "Karta lokalizacji punktu zbiórki (formularz)", "protokol", "karta-lokalizacji-formularz.txt",
+      "KARTA LOKALIZACJI PUNKTU ZBIÓRKI — FORMULARZ\n\nIdentyfikator punktu: ......................\nAdres (ulica, numer, miasto): ......................\nDzielnica / gmina: ......................\nWspółrzędne geograficzne: ............ , ............\nWłaściciel lub zarządca terenu: ......................\nPrzyłącze elektryczne (napięcie / zabezpieczenie): ......................\nDostęp dla pojazdu odbiorczego (tak/nie, ograniczenia): ......................\nSzacowane natężenie ruchu pieszego (osób/dzień): ......................\nOdległość od najbliższego punktu sieci (m): ......................\nCzynsz najmu (zł netto/miesiąc): ......................\nPlanowana data uruchomienia: ......................\nUwagi: ......................\n\nPodpisy stron: ......................"],
+    [null, "Procedura reklamacji i sporów rozliczeniowych", "regulamin", "procedura-reklamacji.txt",
+      "PROCEDURA REKLAMACJI I SPORÓW ROZLICZENIOWYCH\n\n1. Zgłoszenie\nInwestor zgłasza rozbieżność przez panel (zakładka Wiadomości), podając identyfikator punktu i okres rozliczeniowy.\n\n2. Rejestracja\nSystem tworzy spór z terminem na przedstawienie dowodów — 5 dni roboczych.\n\n3. Dowody\nTelemetria urządzenia, masa z katalogu opakowań, potwierdzenie odbioru kierowcy, zapisy dziennika księgowego.\n\n4. Próg tolerancji\nRozbieżność do 2% masy uznaje się za mieszczącą się w błędzie pomiarowym i nie stanowi podstawy korekty.\n\n5. Brak dowodów w terminie\nSystem wykonuje działanie domyślne (agent dispute_deadline) i zamyka spór z uzasadnieniem.\n\n6. Wynik\nWON / LOST / ACCEPTED — każdy wynik zapisywany jest w niezmienialnym dzienniku księgowym.\n\n7. Odwołanie\nStronom przysługuje jedno odwołanie w terminie 14 dni od zamknięcia sporu."],
+    [null, "Umowa powierzenia przetwarzania danych (RODO)", "umowa", "umowa-powierzenia-rodo.txt",
+      "UMOWA POWIERZENIA PRZETWARZANIA DANYCH OSOBOWYCH (WZÓR)\n\n§1 Przedmiot\nPowierzenie przetwarzania danych osób kontaktowych inwestora oraz personelu punktu zbiórki.\n\n§2 Zakres danych\nImię, nazwisko, adres e-mail, numer telefonu, rola w organizacji.\n\n§3 Cel przetwarzania\nObsługa rozliczeń, komunikacja operacyjna oraz realizacja umowy głównej.\n\n§4 Podpowierzenie\nDostawca infrastruktury chmurowej oraz licencjonowany operator usług płatniczych.\n\n§5 Bezpieczeństwo\nSzyfrowanie transmisji, rozdział ról i uprawnień (RBAC), rejestr operacji w dzienniku zdarzeń.\n\n§6 Czas przetwarzania\nDo zakończenia umowy głównej; retencja zgodna z polityką prywatności platformy.\n\n§7 Prawa podmiotu danych\nDostęp, sprostowanie, usunięcie, ograniczenie przetwarzania, sprzeciw, przenoszenie danych.\n\nWzór — wersja 1.0, do przeglądu prawnego."],
+    [2, "Protokół montażu NET-011 Marszałkowska", "protokol", "protokol-montazu-net-011.txt",
+      "PROTOKÓŁ MONTAŻU URZĄDZENIA\n\nPunkt: NET-011, ul. Marszałkowska 100, Warszawa (Śródmieście).\nData montażu: 11.08.2026.\nUrządzenie: recyklomat R1, numer seryjny R1-2026-0111.\nPrzyłącze elektryczne: sprawne, pomiar napięcia 231 V, zabezpieczenie 16 A.\nPoziomowanie i mocowanie: wykonane, urządzenie stabilne.\nTest przyjęcia opakowań: PET — poprawnie, aluminium — poprawnie, szkło — poprawnie.\nTest komunikacji: heartbeat dotarł do platformy, punkt widoczny na mapie live.\nSzkolenie personelu punktu: przeprowadzone, 2 osoby.\nUwagi: brak.\n\nProtokół podpisany elektronicznie przez przedstawicieli stron."],
+    [2, "Umowa inwestorska — pakiet 6 punktów", "umowa", "umowa-inwestorska-a.txt",
+      "UMOWA INWESTORSKA (WYCIĄG)\n\nInwestor: Inwestor A.\nPakiet: 6 punktów zbiórki na terenie Warszawy.\nModel współpracy: operatorski — edrs.io/NET4ZERO prowadzi integrację urządzeń, montaż,\nodbiory, rozliczenia oraz serwis; inwestor finansuje urządzenia i pobiera przychód kaucyjny.\n\nStawki: zgodnie z kartoteką stawek widoczną w panelu (zakładka Stawki) — leasing, serwis, energia.\nRozliczenie: miesięczne, netting opłat z przychodów kaucyjnych, sprawozdanie do akceptacji w panelu.\nOkres inwestycji: 36 miesięcy. Wyłączność terytorialna: promień 300 m od punktu.\nPróg efektywności: 1 200 opakowań miesięcznie na punkt.\n\nWyciąg poglądowy — pełna treść w archiwum operatora."],
+    [3, "Umowa inwestorska — pakiet 4 punktów", "umowa", "umowa-inwestorska-b.txt",
+      "UMOWA INWESTORSKA (WYCIĄG)\n\nInwestor: Inwestor B.\nPakiet: 4 punkty zbiórki na terenie Warszawy.\nModel współpracy: operatorski — edrs.io/NET4ZERO prowadzi integrację urządzeń, montaż,\nodbiory, rozliczenia oraz serwis; inwestor finansuje urządzenia i pobiera przychód kaucyjny.\n\nStawki: zgodnie z kartoteką stawek widoczną w panelu (zakładka Stawki) — leasing, serwis, energia.\nRozliczenie: miesięczne, netting opłat z przychodów kaucyjnych, sprawozdanie do akceptacji w panelu.\nOkres inwestycji: 36 miesięcy. Wyłączność terytorialna: promień 300 m od punktu.\nPróg efektywności: 1 200 opakowań miesięcznie na punkt.\n\nWyciąg poglądowy — pełna treść w archiwum operatora."],
+  ];
+
+  app.get("/api/admin/dev/seed-demo-content", requireMaster, async (c) => {
+    const done = c.env.sql.query<{ id: number }>("SELECT id FROM event_log WHERE idempotency_key = 'seed:demo-content:v2' LIMIT 1");
+    if (done.length > 0) return c.json({ ok: true, already: true });
+    const now = Date.now();
+    const H = 3600_000, D = 24 * H;
+    const enc = new TextEncoder();
+    const me = c.get(APP_USER_KEY);
+
+    // 1) Dokumenty — usun wersje v1 (bez polskich znakow) i wstaw na nowo
+    let nDocs = 0;
+    for (const [orgId, title, cat, filename, body] of SEED_DOCS) {
+      const old = c.env.sql.query<{ id: number }>("SELECT id FROM documents WHERE filename = ?", [filename]);
+      for (const row of old) {
+        c.env.sql.exec("DELETE FROM doc_blobs WHERE doc_id = ?", [row.id]);
+        c.env.sql.exec("DELETE FROM documents WHERE id = ?", [row.id]);
+      }
+      saveDocument(c.env, { orgId, title, category: cat, filename, mimeType: "text/plain; charset=utf-8", bytes: enc.encode(body), uploadedBy: me.id });
+      nDocs++;
+    }
+
+    // 2) Wiadomosci — czysty zestaw demonstracyjny
+    const uid = (email: string) => { const r = c.env.sql.query<{ id: number }>("SELECT id FROM users WHERE email = ? LIMIT 1", [email]); return r.length ? r[0].id : me.id; };
+    const uA = uid("inwestor.a@net4zero.pl"), uB = uid("inwestor.b@net4zero.pl");
+    c.env.sql.exec("DELETE FROM messages");
+    const msgs: [number, number, string, string, number, number | null][] = [
+      [2, uA, "investor", "Dzień dobry, czy montaż nowego punktu przy Marszałkowskiej odbędzie się zgodnie z planem w tym tygodniu?", now - 4 * D - 3 * H, now - 4 * D - 2 * H],
+      [2, me.id, "master", "Tak, ekipa jest potwierdzona na wtorek rano. Protokół montażu pojawi się w zakładce Dokumenty tego samego dnia.", now - 4 * D - 1 * H, now - 4 * D],
+      [2, uA, "investor", "Widzę na pulpicie, że NET-003 Ursynów ma 94% zapełnienia. Kiedy planowany jest odbiór?", now - 2 * D - 5 * H, now - 2 * D - 4 * H],
+      [2, me.id, "master", "Odbiór zaplanowany na jutro o 7:30 — kierowca ma ten punkt na trasie. Alert podniósł też nasz agent health-check.", now - 2 * D - 3 * H, now - 2 * D - 2 * H],
+      [2, uA, "investor", "Sprawozdanie za lipiec zaakceptowane. Proszę o fakturę za abonament w formacie KSeF.", now - 1 * D - 6 * H, now - 1 * D - 5 * H],
+      [2, me.id, "master", "Dziękuję. Faktura zostanie wystawiona automatycznie z dziennika księgowego — będzie widoczna w zakładce Faktury.", now - 1 * D - 4 * H, null],
+      [3, uB, "investor", "Dzień dobry, proszę o aktualny wyciąg operacji — domykamy księgowość za lipiec.", now - 3 * D - 2 * H, now - 3 * D - 1 * H],
+      [3, me.id, "master", "Wyciąg jest dostępny w zakładce Finanse, a sprawozdanie lipcowe w zakładce Sprawozdania — oba generowane z dziennika księgowego.", now - 3 * D, now - 2 * D - 20 * H],
+      [3, uB, "investor", "Dziękuję. Czy możemy dołożyć jeszcze jeden punkt na Pradze w czwartym kwartale?", now - 1 * D - 2 * H, now - 1 * D - 1 * H],
+      [3, me.id, "master", "Tak — przygotuję propozycję lokalizacji wraz z analizą natężenia ruchu i wrócę z konkretami do końca tygodnia.", now - 20 * H, null],
+    ];
+    for (const [orgId, senderId, role, body, ts, readAt] of msgs) {
+      c.env.sql.exec("INSERT INTO messages (org_id, sender_user_id, sender_role, body, created_at, read_at) VALUES (?, ?, ?, ?, ?, ?)", [orgId, senderId, role, body, ts, readAt]);
+    }
+
+    // 3) Heartbeaty — tylko jesli brak
+    let nHb = 0;
+    const hbCount = Number(c.env.sql.query<{ n: number }>("SELECT COUNT(*) AS n FROM device_heartbeats")[0].n);
+    if (hbCount === 0) {
+      const devs = c.env.sql.query<{ id: string }>("SELECT id FROM devices LIMIT 40");
+      for (let di = 0; di < devs.length; di++) {
+        const offline = di === devs.length - 1;
+        for (let k = 12; k >= 0; k--) {
+          const ts = now - k * 2 * H;
+          const fill = Math.min(97, 15 + ((di * 13 + (12 - k) * 6) % 80));
+          c.env.sql.exec(
+            "INSERT INTO device_heartbeats (device_id, ts, online, fill_pct_json) VALUES (?, ?, ?, ?)",
+            [devs[di].id, ts, offline && k < 4 ? 0 : 1, JSON.stringify({ PET: fill, ALU: Math.max(5, fill - 12), GLASS: Math.max(3, fill - 20) })]
+          );
+          nHb++;
+        }
+      }
+    }
+
+    c.env.sql.exec(
+      "INSERT INTO event_log (event_type, idempotency_key, payload_json, source, created_at) VALUES ('seed.demo_content', 'seed:demo-content:v2', ?, 'admin_ui', ?)",
+      [JSON.stringify({ nDocs, nMsgs: msgs.length, nHb }), now]
+    );
+    return c.json({ ok: true, docs: nDocs, messages: msgs.length, heartbeats: nHb, heartbeatsExisting: hbCount });
+  });
+
   app.post("/admin/reseed", async (c) => {
     if (!c.env.ctx.session?.isOwner) return c.json({ error: "forbidden" }, 403);
     await reseed(c.env);

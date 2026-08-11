@@ -248,3 +248,14 @@ Filozofia integracji danych: API tam, gdzie dane płyną często (telemetria, p�
 - **UI**: zakładka „Punkty" (tabela + formularz z mini-mapą Leaflet: geokodowanie Nominatim client-side, klik/drag pineski, dzielnica, inwestor, czynsz) i „Stawki" (formularz nowej wersji + tabela z badge „aktualna", zamknięte wersje wyszarzone).
 - **Ogonki**: przywrócone polskie diakrytyki na landing page (56 fraz z PROMPT 14).
 - **E2E (browser_use)**: NET-011 dodany przez formularz (geokod Marszałkowska 100 → 52.22774,21.01252), widoczny w tabeli; nowa wersja stawki ELECTRICITY 45 zł — stara zamknięta 10.08.2026, nowa „aktualna"; zero błędów JS.
+
+## PROMPT 16 — dane pokazowe (2026-08-11)
+
+Powód: panel wyglądał na pusty (1 dokument, 2 wiadomości, 0 heartbeatów) — demo bez treści nie sprzedaje.
+
+- **Endpoint** `GET /api/admin/dev/seed-demo-content` (requireMaster), idempotentny przez `idempotency_key = seed:demo-content:v2` w event_log.
+- **10 dokumentów** z realną treścią i pełną polską ortografią: cennik usług 2026, wzór umowy najmu powierzchni pod recyklomat, instrukcja obsługi R1, instrukcja BHP odbioru, karta lokalizacji (formularz), procedura reklamacji i sporów, umowa powierzenia RODO (globalne) + protokół montażu NET-011 i dwie umowy inwestorskie (per org 2 / org 3).
+- **10 wiadomości** w dwóch wątkach (montaż, alert zapełnienia 94%, akceptacja sprawozdania, wyciąg operacji, rozbudowa sieci) z realistycznymi znacznikami czasu i read_at.
+- **260 heartbeatów** urządzeń (20 × 13 punktów czasowych co 2 h, jedno urządzenie offline) — zasila widoki telemetryczne i agenta health_check.
+- **Fix**: pierwsza wersja zwracała 500 — użyto `c.get("user")` zamiast `c.get(APP_USER_KEY)`. Wersja v2 dodatkowo usuwa dokumenty v1 (bez ogonków) przed wstawieniem i czyści tabelę messages, żeby demo było spójne.
+- **E2E (browser_use)**: seed `{"ok":true,"docs":10,"messages":10}`; master widzi 11 dokumentów, inwestor A widzi 10 (bez „pakiet 4 punktów" należącego do inwestora B — izolacja potwierdzona); treść pliku i wiadomości z poprawnymi ogonkami; zero błędów JS.
