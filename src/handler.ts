@@ -22,6 +22,7 @@ import { buildEventStream, mapSnapshot, parseCats, resolveCursor, emitEvent as e
 import { runAllAgents } from "./lib/agents";
 import { investorBalance, investorStatement, paymentsFor, createPayment, confirmPayment, generateMonthlyCharges } from "./lib/finance";
 import { saveDocument, readDocument, listDocuments, statementPeriods, renderStatementHtml, acceptStatement, DOC_CATEGORIES, MAX_DOC_BYTES } from "./lib/documents";
+import { renderRegulamin, renderPolitykaPrywatnosci } from "./lib/legal";
 
 type Bindings = { sql: any; websocket: any; ctx: AppCtx };
 
@@ -1548,6 +1549,12 @@ export function createApp() {
     if (!html) return c.json({ error: "not_found" }, 404);
     return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
   });
+
+  // ─── PROMPT 13: publiczne strony prawne (warstwa zaufania) ──────────────────
+  app.get("/regulamin", async (c) =>
+    new Response(renderRegulamin(), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600" } }));
+  app.get("/polityka-prywatnosci", async (c) =>
+    new Response(renderPolitykaPrywatnosci(), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600" } }));
 
   app.post("/admin/reseed", async (c) => {
     if (!c.env.ctx.session?.isOwner) return c.json({ error: "forbidden" }, 403);

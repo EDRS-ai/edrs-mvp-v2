@@ -286,8 +286,50 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
           </div>
         </div>
       </section>
-      <footer className="bg-gray-900 text-gray-400 py-12">
-        <div className="max-w-7xl mx-auto px-6 text-center text-sm">© 2026 NET4ZERO · Wszystkie prawa zastrzeżone</div>
+      <footer className="bg-gray-900 text-gray-400">
+        <div className="max-w-7xl mx-auto px-6 py-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-10">
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+                <Icon d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" className="w-5 h-5 text-white" />
+              </div>
+              <span className="font-bold text-lg text-white">edrs.io</span>
+            </div>
+            <p className="text-sm leading-relaxed">System operacyjny sieci kaucyjnej poza handlem. Telemetria, rozliczenia wielostronne i e-kartoteka inwestora w jednej audytowalnej pętli.</p>
+          </div>
+          <div>
+            <div className="text-white font-semibold text-sm mb-4 uppercase tracking-wider">Produkt</div>
+            <ul className="space-y-2 text-sm">
+              <li><a href="#rozwiazanie" className="hover:text-white">Moduły platformy</a></li>
+              <li><a href="#pricing" className="hover:text-white">Cennik</a></li>
+              <li><a href="#jak-to-dziala" className="hover:text-white">Jak to działa</a></li>
+            </ul>
+          </div>
+          <div>
+            <div className="text-white font-semibold text-sm mb-4 uppercase tracking-wider">Dokumenty</div>
+            <ul className="space-y-2 text-sm">
+              <li><a href="/regulamin" className="hover:text-white">Regulamin platformy</a></li>
+              <li><a href="/polityka-prywatnosci" className="hover:text-white">Polityka prywatności (RODO)</a></li>
+            </ul>
+          </div>
+          <div>
+            <div className="text-white font-semibold text-sm mb-4 uppercase tracking-wider">Kontakt</div>
+            <ul className="space-y-2 text-sm">
+              <li>kontakt@edrs.io</li>
+              <li>Warszawa, Polska</li>
+              <li className="pt-2 text-xs text-gray-500">Operatorem platformy jest NET4ZERO. Płatności obsługuje licencjonowany dostawca usług płatniczych.</li>
+            </ul>
+          </div>
+        </div>
+        <div className="border-t border-gray-800">
+          <div className="max-w-7xl mx-auto px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
+            <span>© 2026 edrs.io · NET4ZERO · Wszystkie prawa zastrzeżone</span>
+            <span className="flex gap-4">
+              <a href="/regulamin" className="hover:text-white">Regulamin</a>
+              <a href="/polityka-prywatnosci" className="hover:text-white">Polityka prywatności</a>
+            </span>
+          </div>
+        </div>
       </footer>
     </div>
   );
@@ -335,6 +377,9 @@ function LoginScreen({ onSuccess }: { onSuccess: (u: User) => void }) {
             <div>inwestor.a@net4zero.pl — inwestor</div>
             <div>inwestor.b@net4zero.pl — inwestor</div>
             <div>kierowca@net4zero.pl — kierowca</div>
+          </div>
+          <div className="text-xs text-gray-400 text-center pt-1">
+            Logując się akceptujesz <a href="/regulamin" className="text-green-700 hover:underline">Regulamin</a> i <a href="/polityka-prywatnosci" className="text-green-700 hover:underline">Politykę prywatności</a>.
           </div>
         </div>
       </form>
