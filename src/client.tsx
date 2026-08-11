@@ -166,31 +166,47 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
             <span className="font-heading font-bold text-2xl text-brand-navy">edrs.io</span>
           </div>
           <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-gray-600">
-            <a href="#rozwiazanie" className="hover:text-brand-blue">Możliwości</a>
-            <a href="#korzysci" className="hover:text-brand-blue">Co zyskujesz</a>
+            <a href="#dla-kogo" className="hover:text-brand-blue">Dla kogo</a>
+            <a href="#rozwiazanie" className="hover:text-brand-blue">Moduły</a>
             <a href="#pricing" className="hover:text-brand-blue">Cennik</a>
             <a href="/regulamin" className="hover:text-brand-blue">Regulamin</a>
           </nav>
           <div className="flex items-center gap-3">
             <button onClick={onLoginClick} className="text-sm text-gray-600 hover:text-brand-blue font-medium">Zaloguj się</button>
-            <button onClick={onLoginClick} className="px-4 py-2 bg-brand-orange text-white text-sm rounded font-bold hover:bg-brand-orangedark">Przetestuj już dziś!</button>
+            <button onClick={onLoginClick} className="px-4 py-2 bg-brand-orange text-white text-sm rounded font-bold hover:bg-brand-orangedark">Zobacz demo na żywo</button>
           </div>
         </div>
       </header>
 
       <section className="bg-white">
-        <div className="max-w-7xl mx-auto px-6 pt-10 pb-4 text-center">
-          <h1 className="font-heading text-3xl lg:text-4xl font-bold text-brand-navy leading-tight max-w-4xl mx-auto">
-            Poznaj edrs.io — kompleksowy system do zarządzania i rozliczeń sieci kaucyjnej poza handlem
+        <div className="max-w-7xl mx-auto px-6 pt-12 pb-6 text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand-bluelight text-brand-bluedark text-xs font-bold rounded uppercase tracking-wide mb-5">
+            System kaucyjny poza handlem
+          </div>
+          <h1 className="font-heading text-3xl lg:text-5xl font-bold text-brand-navy leading-tight max-w-4xl mx-auto">
+            Infrastruktura rozliczeniowa dla sieci recyklomatów
           </h1>
-          <p className="text-gray-600 mt-4 max-w-3xl mx-auto">
-            Telemetria recyklomatów, wielostronne rozliczenia i e-kartoteka inwestora w jednej audytowalnej pętli.
-            Bez szacunków, bez telefonów, bez arkuszy.
+          <p className="text-lg text-gray-600 mt-5 max-w-3xl mx-auto leading-relaxed">
+            Od butelki do faktury w jednej audytowalnej pętli: telemetria urządzeń, wielostronne rozliczenie
+            operator–inwestor–punkt i e-kartoteka inwestora. Bez arkuszy, bez telefonów, bez szacunków.
           </p>
+          <div className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-4xl mx-auto">
+            {[
+              ["2 024", "zdarzenia telemetryczne w pilotażu"],
+              ["SHA-256", "łańcuch zapisów księgowych"],
+              ["co godzinę", "automatyczna kontrola danych"],
+              ["KSeF", "w cenie platformy"],
+            ].map(([v, l]) => (
+              <div key={l} className="border-t-4 border-brand-blue pt-3 text-left">
+                <div className="font-heading text-2xl font-bold text-brand-navy">{v}</div>
+                <div className="text-xs text-gray-500 leading-snug mt-0.5">{l}</div>
+              </div>
+            ))}
+          </div>
         </div>
         <div className="max-w-7xl mx-auto px-6 py-10 grid lg:grid-cols-2 gap-8">
           <div className="rounded-3xl border-4 border-brand-blue p-8 flex flex-col">
-            <div className="font-heading text-2xl font-bold text-gray-400 text-center mb-6">Platforma operatora sieci RVM</div>
+            <div className="font-heading text-2xl font-bold text-gray-400 text-center mb-6">Panel operatora sieci</div>
             <div className="flex-1">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Stan sieci - LIVE</div>
@@ -219,10 +235,10 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
                 wszystko w jednym panelu, z pełną historią zdarzeń.
               </p>
             </div>
-            <button onClick={onLoginClick} className="font-heading text-xl font-bold text-brand-blue hover:text-brand-bluedark mt-6 text-center w-full">Przetestuj już dziś!</button>
+            <button onClick={onLoginClick} className="font-heading text-lg font-bold text-brand-blue hover:text-brand-bluedark mt-6 text-center w-full">Wejdź do panelu operatora →</button>
           </div>
           <div className="rounded-3xl border-4 border-brand-orange p-8 flex flex-col">
-            <div className="font-heading text-2xl font-bold text-gray-400 text-center mb-6">Panel inwestora online</div>
+            <div className="font-heading text-2xl font-bold text-gray-400 text-center mb-6">Panel inwestora</div>
             <div className="flex-1">
               <ul className="space-y-3 text-sm text-gray-600">
                 {[
@@ -242,7 +258,44 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
                 Każdy inwestor loguje się do własnej, odseparowanej kartoteki — jak mieszkaniec do panelu wspólnoty.
               </p>
             </div>
-            <button onClick={onLoginClick} className="font-heading text-xl font-bold text-brand-orange hover:text-brand-orangedark mt-6 text-center w-full">Zobacz demo panelu</button>
+            <button onClick={onLoginClick} className="font-heading text-lg font-bold text-brand-orange hover:text-brand-orangedark mt-6 text-center w-full">Wejdź do panelu inwestora →</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="dla-kogo" className="py-16 bg-gray-50 border-t border-gray-100">
+        <div className="max-w-6xl mx-auto px-6">
+          <h2 className="font-heading text-3xl font-bold text-brand-navy text-center mb-3">Dla kogo jest edrs.io</h2>
+          <p className="text-gray-600 text-center mb-12 max-w-2xl mx-auto">Trzy role, trzy widoki, jedno źródło prawdy. Każdy widzi wyłącznie to, co jego.</p>
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                r: "Operator sieci",
+                p: "Zbierasz dane z urządzeń, tras i umów w arkuszach, a rozliczenie z inwestorami zajmuje tydzień.",
+                s: "Ewidencja punktów i urządzeń, mapa live z alertami, cykle rozliczeniowe, import CSV, spory z terminami i katalog opakowań — z pełną historią zdarzeń.",
+                c: "border-brand-blue", t: "text-brand-blue",
+              },
+              {
+                r: "Inwestor",
+                p: "Nie wiesz, ile zarobiły Twoje punkty, dopóki ktoś nie wyśle Ci arkusza. Zaufanie opiera się na słowie.",
+                s: "Własna kartoteka: saldo, wyciąg operacji, naliczenia ze stawek umownych, netting z kaucji, płatności online i sprawozdanie miesięczne do akceptacji jednym kliknięciem.",
+                c: "border-brand-orange", t: "text-brand-orange",
+              },
+              {
+                r: "Punkt zbiórki",
+                p: "Chcesz przychodu z recyklomatu, ale nie chcesz obsługi, papierów i pilnowania odbiorów.",
+                s: "Odbiory planowane z telemetrii, protokoły i umowy w cyfrowym archiwum, przychód rozliczany automatycznie — bez ręcznej pracy po Twojej stronie.",
+                c: "border-brand-blue", t: "text-brand-blue",
+              },
+            ].map((x) => (
+              <div key={x.r} className={`bg-white rounded-2xl border-2 ${x.c} p-7 flex flex-col`}>
+                <div className={`font-heading text-xl font-bold ${x.t} mb-4`}>{x.r}</div>
+                <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Problem</div>
+                <p className="text-sm text-gray-600 leading-relaxed mb-4">{x.p}</p>
+                <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Co dostajesz</div>
+                <p className="text-sm text-gray-600 leading-relaxed">{x.s}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -250,7 +303,7 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
       <section id="rozwiazanie" className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-6">
           <h2 className="font-heading text-3xl font-bold text-brand-navy text-center mb-12 max-w-3xl mx-auto">
-            Poznaj możliwości Twojego nowego systemu
+            Osiem modułów. Jedna pętla rozliczeniowa.
           </h2>
           <div className="grid md:grid-cols-2 gap-x-12 gap-y-10">
             {feats.map((m, idx) => {
@@ -278,13 +331,13 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
       <section className="py-10 bg-white">
         <div className="max-w-6xl mx-auto px-6">
           <div className="rounded-3xl border-4 border-brand-orange p-8 lg:p-10">
-            <h3 className="font-heading text-2xl font-bold text-brand-navy mb-3">Połącz swoją sieć kaucyjną z KSeF!</h3>
+            <h3 className="font-heading text-2xl font-bold text-brand-navy mb-3">Faktury ustrukturyzowane bez osobnego modułu</h3>
             <p className="text-sm text-gray-600 leading-relaxed max-w-4xl">
               Od 2026 roku faktury ustrukturyzowane stają się obowiązkowe dla kolejnych grup podatników.
               edrs.io wystawia faktury rozliczeniowe automatycznie na podstawie dziennika księgowego
               i przygotowuje je w formacie gotowym do wysyłki do Krajowego Systemu e-Faktur.
             </p>
-            <div className="font-heading text-xl font-bold text-brand-orange text-center mt-6">Faktury KSeF w cenie platformy — bez dodatkowych modułów</div>
+            <div className="font-heading text-xl font-bold text-brand-orange text-center mt-6">Zgodność z KSeF wchodzi w abonament — nie w cennik dodatków</div>
           </div>
         </div>
       </section>
@@ -292,7 +345,7 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
       <section id="korzysci" className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-start">
           <div>
-            <h2 className="font-heading text-2xl font-bold text-brand-navy mb-6">Sprawdź, co zyskujesz korzystając z naszej platformy!</h2>
+            <h2 className="font-heading text-2xl font-bold text-brand-navy mb-6">Dlaczego operatorzy wybierają edrs.io</h2>
             <ul className="space-y-4 text-sm text-gray-600">
               {benefits.map((x) => (
                 <li key={x.b} className="flex gap-2.5">
@@ -303,7 +356,7 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
             </ul>
           </div>
           <div className="text-center pt-4">
-            <div className="font-heading text-xl font-bold text-brand-orange mb-8">Z pilotażu platformy korzysta już</div>
+            <div className="font-heading text-xl font-bold text-brand-orange mb-8">Pilotaż referencyjny w liczbach</div>
             <div className="grid grid-cols-3 gap-6">
               <div><div className="font-heading text-5xl lg:text-6xl font-bold text-brand-orange">10</div><div className="font-heading font-bold text-brand-orange mt-1">punktów<br/>pilotażu</div></div>
               <div><div className="font-heading text-5xl lg:text-6xl font-bold text-brand-orange">5</div><div className="font-heading font-bold text-brand-orange mt-1">kierowców<br/>w sieci</div></div>
@@ -316,7 +369,7 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
 
       <section id="pricing" className="py-16 bg-gray-50 border-t border-gray-100">
         <div className="max-w-6xl mx-auto px-6">
-          <h2 className="font-heading text-3xl font-bold text-brand-navy text-center mb-3">Prosty cennik. Płacisz za wartość.</h2>
+          <h2 className="font-heading text-3xl font-bold text-brand-navy text-center mb-3">Płacisz za rozliczone opakowania, nie za obietnice</h2>
           <p className="text-gray-600 text-center mb-10">Stały abonament za punkt + 0,5% od wolumenu kaucji. KSeF i sprawozdania w cenie.</p>
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             <div className="bg-white p-8 rounded-2xl border-2 border-gray-200">
@@ -353,8 +406,8 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
           <div>
             <div className="font-heading text-brand-navy font-bold mb-4 uppercase tracking-wider text-xs">Produkt</div>
             <ul className="space-y-2">
-              <li><a href="#rozwiazanie" className="hover:text-brand-blue">Możliwości systemu</a></li>
-              <li><a href="#korzysci" className="hover:text-brand-blue">Co zyskujesz</a></li>
+              <li><a href="#rozwiazanie" className="hover:text-brand-blue">Moduły platformy</a></li>
+              <li><a href="#rozwiazanie" className="hover:text-brand-blue">Moduły</a></li>
               <li><a href="#pricing" className="hover:text-brand-blue">Cennik</a></li>
             </ul>
           </div>

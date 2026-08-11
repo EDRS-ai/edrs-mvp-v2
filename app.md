@@ -259,3 +259,18 @@ Powód: panel wyglądał na pusty (1 dokument, 2 wiadomości, 0 heartbeatów) �
 - **260 heartbeatów** urządzeń (20 × 13 punktów czasowych co 2 h, jedno urządzenie offline) — zasila widoki telemetryczne i agenta health_check.
 - **Fix**: pierwsza wersja zwracała 500 — użyto `c.get("user")` zamiast `c.get(APP_USER_KEY)`. Wersja v2 dodatkowo usuwa dokumenty v1 (bez ogonków) przed wstawieniem i czyści tabelę messages, żeby demo było spójne.
 - **E2E (browser_use)**: seed `{"ok":true,"docs":10,"messages":10}`; master widzi 11 dokumentów, inwestor A widzi 10 (bez „pakiet 4 punktów" należącego do inwestora B — izolacja potwierdzona); treść pliku i wiadomości z poprawnymi ogonkami; zero błędów JS.
+
+## PROMPT 17 — oryginalne pozycjonowanie marketingowe (2026-08-12)
+
+Powód: poprzedni H1 „Poznaj edrs.io — kompleksowy system...” był zbyt bliski nagłówkowi eMieszkańca i nie budował własnej kategorii.
+
+- Research porównawczy: DRS/RVM (Sensoneo, TOMRA, RVM Systems, Kaucja.pl, Reselekt, RecyHub, EcoAction), logistyka/floty (Samsara, Motive, Flexport, Webfleet, Fleetio), fintech rozliczeniowy (Stripe, Adyen, Modern Treasury, Ramp), polski B2B regulowany (Autenti, Fakturownia, Symfonia, eMieszkaniec).
+- Nowe pozycjonowanie: **„Infrastruktura rozliczeniowa dla sieci recyklomatów”**; eyebrow „System kaucyjny poza handlem”; wspierający claim „Od butelki do faktury”.
+- Nowy hero: kategoria + wynik + mechanizm; usunięte frazy „Poznaj... kompleksowy system”, „Przetestuj już dziś” i inne elementy copy zbyt bliskie eMieszkańcowi.
+- Pasek dowodów: 2 024 zdarzenia telemetryczne, SHA-256, automatyczna kontrola co godzinę, KSeF w cenie.
+- Nowa sekcja „Dla kogo”: Operator sieci / Inwestor / Punkt zbiórki, każda z problemem i wynikiem.
+- Zmienione CTA: „Zobacz demo na żywo”, „Wejdź do panelu operatora”, „Wejdź do panelu inwestora”.
+- Zmienione nagłówki sekcji i cennika na własny język kategorii.
+- `<title>`: `edrs.io — Infrastruktura rozliczeniowa dla sieci recyklomatów`.
+- Pełny brief: `documents/personal-0DaTPe4r/edrs/2026-08-12_Brief_Marketingowy_edrs_io.md` — pozycjonowanie, persony, analiza komunikacji 20+ marek, hierarchy of messages, copy bank, struktura strony, dowody, kanały, obiekcje, KPI i plan 90 dni.
+- Browser verification: desktop 1365×768 + mobile 390×768; HTTP 200, brak page errors i failed requests. Znane ostrzeżenie: Tailwind Play CDN w produkcji (do usunięcia przed pełnym production hardening).
