@@ -285,3 +285,13 @@ Powód: poprzedni H1 „Poznaj edrs.io — kompleksowy system...” był zbyt bl
 - Bank Data Room v1: `GET /api/admin/bank-data-room`; read-only pakiet portfolio/cycles/ledger/disputes/telemetry/reconciliation, completeness, SHA-256, disclaimer; jawnie bez score i rekomendacji kredytowej. UI z KPI + eksport JSON.
 - Model handlowy skorygowany wszędzie: 500 zł netto/punkt/mc + 220 zł netto/pojazd/mc; usunięte 149 zł i 0,5% z landingu/dashboardu/cennika demo.
 - E2E: landing desktop+mobile assertions 500/220/H1; DB potwierdza 3 nowe tabele; Bank Data Room 35 punktów/21 aktywnych/50% kompletności/hash; manifesty: cycle 4 = 1 group, 7 ELIGIBLE legs; driver FAILED BRAK_DOSTEPU z notatką zapisany i odczytany przez admin API. Zero błędów runtime.
+
+## PROMPT 19 — pełne scenariusze pokazowe MVP (2026-08-12)
+
+- Idempotentny endpoint master: `GET /api/admin/dev/seed-mvp-showcase`, blokada przez `event_log.idempotency_key = seed:mvp-showcase:v1`.
+- Seed cyklu 4: 6 rekoncyliacji trzech źródeł (RVM / hub scale / deposit operator): 3 matched, 2 variance, 1 disputed.
+- 2 spory: NET-003 `EVIDENCE_REQUIRED` 1 245,00 zł z trzema dowodami; NET-007 `INQUIRY_PROCESSING` 689,00 zł z proof kierowcy, plombą, GPS i zdjęciem demo.
+- `DISPUTE_HOLD` 1 245,00 zł dopisany przez append-only `insertLedgerEntry` z SHA-256 i stabilnym end_to_end_id. Manifest cyklu: 2 grupy, 8 nóg; grupa NET-003 = HELD.
+- 4 faktury demo: abonament 6 pkt, moduł kierowcy 3 pojazdy, abonament 4 pkt i korekta NET-007; widoczność scoped per inwestor.
+- 5 historycznych zdarzeń kierowcy: ACCEPTED, COMPLETED i FAILED z reason codes, GPS, timestamp, plomba/photoRef; jedno z `sync_source=offline`.
+- E2E browser_use: seed zwrócił `{cycleId:4,reconciliations:6,disputes:2,invoices:4,driverEvents:5,manifestGroups:2,manifestLegs:8}`; master widzi spory i hold; inwestor A widzi dwie własne faktury i finanse; kierowca widzi zlecenia i outbox. Zero błędów JS/runtime.

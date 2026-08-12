@@ -1816,6 +1816,67 @@ export function createApp() {
     return c.json({ ok: true, docs: nDocs, messages: msgs.length, heartbeats: nHb, heartbeatsExisting: hbCount });
   });
 
+  // ── PROMPT 19: pełne dane pokazowe modułów MVP (idempotentne) ───────────
+  app.get("/api/admin/dev/seed-mvp-showcase", requireMaster, async (c) => {
+    const seedKey = "seed:mvp-showcase:v1";
+    const existingSeed = c.env.sql.query<{ id: number }>("SELECT id FROM event_log WHERE idempotency_key=? LIMIT 1", [seedKey]);
+    if (existingSeed.length) {
+      return c.json({ ok: true, already: true,
+        reconciliations: Number(c.env.sql.query<{n:number}>("SELECT COUNT(*) n FROM reconciliations")[0].n),
+        disputes: Number(c.env.sql.query<{n:number}>("SELECT COUNT(*) n FROM disputes")[0].n),
+        invoices: Number(c.env.sql.query<{n:number}>("SELECT COUNT(*) n FROM invoices")[0].n),
+        driverEvents: Number(c.env.sql.query<{n:number}>("SELECT COUNT(*) n FROM driver_job_events")[0].n)
+      });
+    }
+    const me = c.get(APP_USER_KEY); const now = Date.now(); const D=86400000; const H=3600000;
+    const cycle = c.env.sql.query<any>("SELECT id,period_start,period_end FROM settlement_cycles ORDER BY id DESC LIMIT 1")[0];
+    if (!cycle) return c.json({ error: "no_cycle" }, 400);
+    const scenarios = [
+      ["NET-001", {device:12840,sorter:12760,operator:12730}, 0.86, "matched"],
+      ["NET-002", {device:9840,sorter:9750,operator:9710}, 1.32, "matched"],
+      ["NET-003", {device:15620,sorter:15110,operator:14860}, 4.87, "disputed"],
+      ["NET-004", {device:7240,sorter:7110,operator:7090}, 2.07, "variance"],
+      ["NET-005", {device:11200,sorter:11170,operator:11140}, 0.54, "matched"],
+      ["NET-007", {device:13380,sorter:12810,operator:12740}, 4.78, "variance"]
+    ];
+    const reconIds: Record<string,number> = {};
+    for (const [point,src,delta,status] of scenarios as any[]) {
+      c.env.sql.exec("INSERT INTO reconciliations (cycle_id,scope_type,scope_ref,source_a_json,source_b_json,source_c_json,delta_ab,delta_bc,delta_ac,delta_pct,status,created_at) VALUES (?, 'location', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [cycle.id,point,JSON.stringify({source:"RVM",packages:src.device}),JSON.stringify({source:"hub_scale",packages:src.sorter}),JSON.stringify({source:"deposit_operator",packages:src.operator}),Math.abs(src.device-src.sorter),Math.abs(src.sorter-src.operator),Math.abs(src.device-src.operator),delta,status,now]);
+      reconIds[point]=Number(c.env.sql.query<{id:number}>("SELECT last_insert_rowid() id")[0].id);
+    }
+    const evidenceA = [{type:"device_snapshot",ref:"NET-003/RVM/2026-08",packages:15620},{type:"hub_weighing",ref:"HUB-WRO/PL-88421",packages:15110},{type:"operator_report",ref:"RESELEKT-2026-08-003",packages:14860}];
+    c.env.sql.exec("INSERT INTO disputes (reconciliation_id,state,due_at,evidence_json,disputed_amount_grosze,outcome,default_action_taken,created_at,updated_at) VALUES (?, 'EVIDENCE_REQUIRED', ?, ?, 124500, NULL, 0, ?, ?)",[reconIds["NET-003"],now+5*D,JSON.stringify(evidenceA),now,now]);
+    const disputeA=Number(c.env.sql.query<{id:number}>("SELECT last_insert_rowid() id")[0].id);
+    const evidenceB = [{type:"driver_proof",ref:"COLL-NET-007-20260810",seal:"PL-99318",gps:[52.196,20.884]},{type:"photo",ref:"evidence://demo/net-007-bags"}];
+    c.env.sql.exec("INSERT INTO disputes (reconciliation_id,state,due_at,evidence_json,disputed_amount_grosze,outcome,default_action_taken,created_at,updated_at) VALUES (?, 'INQUIRY_PROCESSING', ?, ?, 68900, NULL, 0, ?, ?)",[reconIds["NET-007"],now+3*D,JSON.stringify(evidenceB),now,now]);
+    const org = c.env.sql.query<{investor_org_id:number}>("SELECT investor_org_id FROM locations WHERE id='NET-003'")[0];
+    const holdKey=`demo:dispute-hold:${disputeA}`;
+    if(org?.investor_org_id && !c.env.sql.query("SELECT id FROM ledger_entries WHERE end_to_end_id=?",[holdKey]).length){
+      const net=124500,vat=Math.round(net*.23); await insertLedgerEntry(c.env,{cycleId:cycle.id,entryType:"DISPUTE_HOLD",partyOrgId:org.investor_org_id,direction:"debit",amountNet:net,vatRate:23,vatAmount:vat,amountGross:net+vat,locationId:"NET-003",eventDate:cycle.period_end,operationalDate:now,bookingDate:now,endToEndId:holdKey,author:"seed:showcase",source:`demo:dispute:${disputeA}`});
+    }
+    const invs=c.env.sql.query<any>("SELECT id,name FROM investors ORDER BY id LIMIT 2");
+    const invoices = [
+      ["KSeF-2026-08-000041", "Abonament platformy — 6 punktów", 369000, "2026-08-01", "zaakceptowana", invs[0]?.id],
+      ["KSeF-2026-08-000042", "Moduł kierowcy — 3 pojazdy", 81180, "2026-08-01", "zaakceptowana", invs[0]?.id],
+      ["KSeF-2026-08-000043", "Abonament platformy — 4 punkty", 246000, "2026-08-01", "wysłana", invs[1]?.id],
+      ["KSeF-2026-07-000037", "Rozliczenie korekty NET-007", -68900, "2026-07-31", "korekta", invs[1]?.id]
+    ];
+    for(const [ksef,title,amount,date,status,investorId] of invoices as any[]){ if(!c.env.sql.query("SELECT id FROM invoices WHERE ksef_number=?",[ksef]).length)c.env.sql.exec("INSERT INTO invoices (ksef_number,recipient,investor_id,driver_id,title,amount_grosze,issue_date,status,created_at) VALUES (?,?,?,?,?,?,?,?,?)",[ksef, investorId===invs[0]?.id?(invs[0]?.name||"Inwestor A"):(invs[1]?.name||"Inwestor B"),investorId,null,title,amount,date,status,now]); }
+    const driver=c.env.sql.query<{id:number}>("SELECT id FROM drivers ORDER BY id LIMIT 1")[0];
+    const devEvents=[
+      ["NET-001","ACCEPTED",null,"Trasa poranna — potwierdzona",now-26*H],
+      ["NET-001","COMPLETED",null,"Odebrano 8 worków, plomby PL-88001–PL-88008",now-24*H],
+      ["NET-003","FAILED","BRAK_DOSTEPU","Brama techniczna zamknięta; kontakt z administracją",now-20*H],
+      ["NET-005","COMPLETED",null,"Odebrano 5 worków; bez uwag",now-8*H],
+      ["NET-007","FAILED","BRAK_MIEJSCA_W_POJEZDZIE","Pojazd osiągnął limit masy; punkt wraca do puli",now-4*H]
+    ];
+    if(driver) for(let i=0;i<devEvents.length;i++){const [point,action,reason,notes,ts]=devEvents[i] as any[];recordDriverJobEvent(c.env,driver.id,{clientEventId:`showcase:v1:driver:${i}`,pointId:point,action,reasonCode:reason,notes,occurredAt:ts,syncSource:i===4?"offline":"online",evidence:{gps:[52.2+i*.01,21.0-i*.01],timestamp:ts,photoRef:action==="FAILED"?`evidence://demo/${point.toLowerCase()}`:null}})}
+    const manifest=getSettlementManifest(c.env,cycle.id);
+    c.env.sql.exec("INSERT INTO event_log (cycle_id,event_type,idempotency_key,payload_json,source,actor_id,created_at) VALUES (?, 'seed.mvp_showcase', ?, ?, 'admin_ui', ?, ?)",[cycle.id,seedKey,JSON.stringify({scenarios:scenarios.length,disputes:2,invoices:invoices.length,driverEvents:devEvents.length,manifestGroups:(manifest as any).groups?.length||0}),me.id,now]);
+    return c.json({ok:true,cycleId:cycle.id,reconciliations:scenarios.length,disputes:2,invoices:invoices.length,driverEvents:devEvents.length,manifestGroups:(manifest as any).groups?.length||0,manifestLegs:(manifest as any).legs?.length||0});
+  });
+
   app.post("/admin/reseed", async (c) => {
     if (!c.env.ctx.session?.isOwner) return c.json({ error: "forbidden" }, 403);
     await reseed(c.env);
