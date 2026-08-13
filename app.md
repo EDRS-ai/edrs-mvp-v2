@@ -310,3 +310,35 @@ Powód: poprzedni H1 „Poznaj edrs.io — kompleksowy system...” był zbyt bl
 - UI: wymagane pola oznaczone, podpowiedzi domenowe, responsywny grid, zielony komunikat ID po sukcesie, komunikat walidacji po błędzie.
 - Naprawa po UAT-01: `entryLog` miał 11 wartości dla 10 kolumn i zwracał 500 po poprawnym zapisie. Poprawiono liczbę placeholderów i dodano defensywny catch z `ENTRY_LOG_FAILED`.
 - E2E UAT-02: zapisane 6/6 rekordów przez UI: device RVM-UAT-014, driver #8, contract #9, collection #15, invoice #13, dispute #5 / reconciliation #9. Reload potwierdził nowego kierowcę w dropdown; zero błędów JS.
+
+## PROMPT 21 — Energia i koszty mediów (2026-08-14)
+
+Moduł zarządzania energią wzorowany na procesach Comarch ERP XL / enova365 (faktura → zobowiązanie → akceptacja → preliminarz/paczka → ręczne potwierdzenie rozrachunku) oraz Schneider EcoStruxure / Siemens Energy Manager / SAP Utilities (licznik, jakość odczytu, baseline, odchylenie faktury od pomiaru i taryfy).
+
+### Model danych i migracja
+- Migracja `0005_energy_management` tworzy 7 tabel: `energy_suppliers`, `energy_contracts`, `energy_meters`, `energy_readings`, `energy_invoices`, `energy_payment_orders`, `energy_alerts` + indeksy i unikalności.
+- Relacja: dostawca → umowa/PPE/taryfa/moc/cena → licznik/RVM/punkt → odczyty → faktura → walidacja → zlecenie płatności → ręczne potwierdzenie z wyciągu.
+- Odczyty mają `read_at`, stan narastający, interwał kWh, źródło i jakość (`valid|estimated|suspect|corrected`).
+
+### API i workflow
+- `GET /api/admin/energy/dashboard`, `GET /api/admin/energy/options`.
+- POST formularze: `/energy/suppliers`, `/energy/contracts`, `/energy/meters`, `/energy/readings`, `/energy/invoices`.
+- `validateEnergyInvoice`: oczekiwany koszt = kWh × stawka + opłata stała; porównanie z sumą odczytów w okresie; PASS ≤3%, WARNING ≤10%, FAIL >10% lub brak danych.
+- Faktura: RECEIVED → DATA_VALIDATION / OPERATIONAL_APPROVAL → APPROVED_FOR_PAYMENT / ON_HOLD → PAID_RECONCILED.
+- `POST /energy/invoices/:id/approve-payment`: FAIL blokuje; WARNING trafia ON_HOLD; PASS zatwierdza.
+- `GET /energy/payments/:id/export`: CSV paczki przelewu. Eksport nie jest zapłatą.
+- `POST /energy/payments/:id/mark-paid`: wymaga numeru potwierdzenia/wyciągu; payment SETTLED, invoice PAID_RECONCILED. Brak udawania działającego bank API.
+- Alarm `CONSUMPTION_SPIKE`: interwał >2× średniej 7 odczytów; >4× = critical. Alert ma status OPEN/ACKNOWLEDGED.
+
+### UI
+- Nowa zakładka master `Energia` z 4 sekcjami: Podsumowanie, Dostawcy i umowy, Liczniki i odczyty, Faktury i płatności.
+- KPI: kWh 30 dni, faktury do zapłaty, przeterminowane, alerty, liczba umów/dostawców.
+- Tabela per punkt: kWh, koszt netto, opakowania, kWh/1000 opakowań, koszt/1000 opakowań.
+- Formularze dostawcy, PPE/umowy, licznika, odczytu, faktury; lista faktur z walidacją, eksportem i ręcznym potwierdzeniem płatności.
+
+### Dane demo i E2E
+- Idempotentny `POST /api/admin/dev/seed-energy`: 2 dostawców demo, 3 umowy/PPE, 3 liczniki, 93 odczyty, 3 faktury oraz payment orders.
+- E2E: 1857,9 kWh / 30 dni; 2158,46 zł brutto do zapłaty; NET-001/003/011 mają koszt i kWh na 1000 opakowań.
+- Faktury: PASS 644,57 zł; WARNING 965,61 zł; FAIL 548,28 zł. PASS wyeksportowany do CSV i potwierdzony `BANK-DEMO-ENERGY-001` → SETTLED / PAID_RECONCILED.
+- Manual reading id=95, 100 kWh vs baseline 31,23 kWh utworzył alert `CONSUMPTION_SPIKE` id=3 (3,2× baseline). Seed POST po ponownym uruchomieniu zwraca `already:true`.
+- Browser E2E bez błędów JS. Znane ograniczenie: dane demo, brak realnego API dostawcy energii, KSeF i banku; integracje są następną warstwą po wyborze partnerów.

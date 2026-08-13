@@ -592,6 +592,139 @@ export const driverJobEvents = sqliteTable("driver_job_events", {
   idempotencyIdx: uniqueIndex("driver_job_events_idempotency_idx").on(t.idempotencyKey),
 }));
 
+// ─── PROMPT 21: Energia — inwestycja → dostawca → licznik → faktura → płatność ─
+
+export const energySuppliers = sqliteTable("energy_suppliers", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  nip: text("nip"),
+  contactEmail: text("contact_email"),
+  bankAccount: text("bank_account"),
+  status: text("status").notNull().default("active"),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+}, (t) => ({ nipIdx: uniqueIndex("energy_suppliers_nip_idx").on(t.nip) }));
+
+export const energyContracts = sqliteTable("energy_contracts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  supplierId: integer("supplier_id").notNull().references(() => energySuppliers.id),
+  locationId: text("location_id").notNull().references(() => locations.id),
+  ppe: text("ppe").notNull(),
+  tariff: text("tariff").notNull(),
+  contractedPowerKw: real("contracted_power_kw"),
+  pricePerKwh: real("price_per_kwh").notNull(),
+  fixedMonthlyGrosze: integer("fixed_monthly_grosze").notNull().default(0),
+  validFrom: integer("valid_from").notNull(),
+  validTo: integer("valid_to"),
+  paymentDays: integer("payment_days").notNull().default(14),
+  status: text("status").notNull().default("active"),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+}, (t) => ({
+  supplierIdx: index("energy_contracts_supplier_idx").on(t.supplierId),
+  locationIdx: index("energy_contracts_location_idx").on(t.locationId),
+  ppeIdx: uniqueIndex("energy_contracts_ppe_idx").on(t.ppe),
+}));
+
+export const energyMeters = sqliteTable("energy_meters", {
+  id: text("id").primaryKey(),
+  contractId: integer("contract_id").notNull().references(() => energyContracts.id),
+  locationId: text("location_id").notNull().references(() => locations.id),
+  deviceId: text("device_id").references(() => devices.id),
+  serial: text("serial").notNull(),
+  model: text("model"),
+  unit: text("unit").notNull().default("kWh"),
+  multiplier: real("multiplier").notNull().default(1),
+  sourceType: text("source_type").notNull().default("manual"),
+  status: text("status").notNull().default("active"),
+  installedAt: integer("installed_at"),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+}, (t) => ({
+  serialIdx: uniqueIndex("energy_meters_serial_idx").on(t.serial),
+  locationIdx: index("energy_meters_location_idx").on(t.locationId),
+  contractIdx: index("energy_meters_contract_idx").on(t.contractId),
+}));
+
+export const energyReadings = sqliteTable("energy_readings", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  meterId: text("meter_id").notNull().references(() => energyMeters.id),
+  readAt: integer("read_at").notNull(),
+  cumulativeKwh: real("cumulative_kwh").notNull(),
+  intervalKwh: real("interval_kwh"),
+  source: text("source").notNull().default("manual"),
+  qualityStatus: text("quality_status").notNull().default("valid"),
+  note: text("note"),
+  createdBy: integer("created_by"),
+  createdAt: integer("created_at").notNull(),
+}, (t) => ({
+  meterTimeIdx: uniqueIndex("energy_readings_meter_time_idx").on(t.meterId, t.readAt),
+  qualityIdx: index("energy_readings_quality_idx").on(t.qualityStatus),
+}));
+
+export const energyInvoices = sqliteTable("energy_invoices", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  supplierId: integer("supplier_id").notNull().references(() => energySuppliers.id),
+  contractId: integer("contract_id").notNull().references(() => energyContracts.id),
+  locationId: text("location_id").notNull().references(() => locations.id),
+  invoiceNumber: text("invoice_number").notNull(),
+  periodStart: integer("period_start").notNull(),
+  periodEnd: integer("period_end").notNull(),
+  consumptionKwh: real("consumption_kwh").notNull(),
+  netGrosze: integer("net_grosze").notNull(),
+  vatGrosze: integer("vat_grosze").notNull(),
+  grossGrosze: integer("gross_grosze").notNull(),
+  dueAt: integer("due_at").notNull(),
+  status: text("status").notNull().default("RECEIVED"),
+  validationStatus: text("validation_status").notNull().default("PENDING"),
+  expectedNetGrosze: integer("expected_net_grosze"),
+  variancePct: real("variance_pct"),
+  documentId: integer("document_id"),
+  bankAccount: text("bank_account"),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+}, (t) => ({
+  invoiceNumberIdx: uniqueIndex("energy_invoices_number_idx").on(t.supplierId, t.invoiceNumber),
+  dueIdx: index("energy_invoices_due_idx").on(t.dueAt),
+  statusIdx: index("energy_invoices_status_idx").on(t.status),
+  locationIdx: index("energy_invoices_location_idx").on(t.locationId),
+}));
+
+export const energyPaymentOrders = sqliteTable("energy_payment_orders", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  invoiceId: integer("invoice_id").notNull().references(() => energyInvoices.id),
+  amountGrosze: integer("amount_grosze").notNull(),
+  status: text("status").notNull().default("UNPLANNED"),
+  scheduledAt: integer("scheduled_at"),
+  approvedBy: integer("approved_by"),
+  approvedAt: integer("approved_at"),
+  exportReference: text("export_reference"),
+  paidAt: integer("paid_at"),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+}, (t) => ({
+  invoiceIdx: uniqueIndex("energy_payment_orders_invoice_idx").on(t.invoiceId),
+  statusIdx: index("energy_payment_orders_status_idx").on(t.status),
+}));
+
+export const energyAlerts = sqliteTable("energy_alerts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  locationId: text("location_id"),
+  meterId: text("meter_id"),
+  invoiceId: integer("invoice_id"),
+  alertType: text("alert_type").notNull(),
+  severity: text("severity").notNull().default("warning"),
+  message: text("message").notNull(),
+  status: text("status").notNull().default("OPEN"),
+  detectedAt: integer("detected_at").notNull(),
+  acknowledgedBy: integer("acknowledged_by"),
+  acknowledgedAt: integer("acknowledged_at"),
+  resolvedAt: integer("resolved_at"),
+}, (t) => ({
+  statusIdx: index("energy_alerts_status_idx").on(t.status),
+  locationIdx: index("energy_alerts_location_idx").on(t.locationId),
+}));
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 // ─── PROMPT 2 tables (NOWE) ────────────────────────────────────────────────────

@@ -36,6 +36,13 @@
       "when": 1786489434477,
       "tag": "0004_mvp_settlement_legs_driver_events",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1786663746269,
+      "tag": "0005_energy_management",
+      "breakpoints": true
     }
   ]
 }
