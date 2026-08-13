@@ -1816,6 +1816,78 @@ export function createApp() {
     return c.json({ ok: true, docs: nDocs, messages: msgs.length, heartbeats: nHb, heartbeatsExisting: hbCount });
   });
 
+  // ── PROMPT 20: centralne formularze danych operacyjnych ──────────────────
+  app.get("/api/admin/data-entry/options", requireMaster, async (c) => c.json({
+    organizations: c.env.sql.query<any>("SELECT id,name,type FROM organizations WHERE deleted_at IS NULL ORDER BY type,name"),
+    locations: c.env.sql.query<any>("SELECT id,address,district FROM locations WHERE deleted_at IS NULL AND id NOT LIKE 'SYN-%' ORDER BY id"),
+    drivers: c.env.sql.query<any>("SELECT id,name,company,bdo_number,status FROM drivers ORDER BY name"),
+    cycles: c.env.sql.query<any>("SELECT id,label,status,period_start,period_end FROM settlement_cycles ORDER BY id DESC"),
+    investors: c.env.sql.query<any>("SELECT id,name,status FROM investors ORDER BY name")
+  }));
+
+  const entryDuplicate = (env:any,key:string) => env.sql.query("SELECT id FROM event_log WHERE idempotency_key=? LIMIT 1",[key]).length>0;
+  const entryLog = (env:any, me:any, key:string, eventType:string, payload:any, pointId?:string|null, cycleId?:number|null) => {
+    try {
+      const now=Date.now();
+      env.sql.exec(
+        "INSERT INTO event_log (cycle_id,point_id,event_type,idempotency_key,payload_json,source,actor_id,received_at,processed_at,created_at) VALUES (?,?,?,?,?,'admin_form',?,?,?,?)",
+        [cycleId??null,pointId??null,eventType,key,JSON.stringify(payload),me.id,now,now,now]
+      );
+      return true;
+    } catch (error:any) {
+      console.error(`ENTRY_LOG_FAILED type=${eventType} key=${key}: ${error?.message||error}`);
+      return false;
+    }
+  };
+
+  app.post("/api/admin/data-entry/device", requireMaster, async (c) => {
+    const me=c.get(APP_USER_KEY),b=await c.req.json<any>(),key=String(b.clientRequestId||"");
+    if(!key)return c.json({error:"missing_client_request_id"},400); if(entryDuplicate(c.env,key))return c.json({ok:true,duplicate:true});
+    const id=String(b.id||"").trim().toUpperCase(),serial=String(b.serial||"").trim(),manufacturer=String(b.manufacturer||"").trim(),model=String(b.model||"").trim();
+    if(!/^[A-Z0-9_-]{3,40}$/.test(id)||serial.length<3||manufacturer.length<2||model.length<2)return c.json({error:"invalid_device_fields"},400);
+    if(b.locationId&&!c.env.sql.query("SELECT id FROM locations WHERE id=? AND deleted_at IS NULL",[b.locationId]).length)return c.json({error:"location_not_found"},400);
+    if(c.env.sql.query("SELECT id FROM devices WHERE id=? OR serial=?",[id,serial]).length)return c.json({error:"device_or_serial_exists"},409);
+    const now=Date.now(),installed=b.installedAt?Date.parse(b.installedAt):null,warranty=b.warrantyUntil?Date.parse(b.warrantyUntil):null;
+    c.env.sql.exec("INSERT INTO devices (id,serial,manufacturer,model,firmware_version,location_id,status,terminal_mid,terminal_tid,fraction_capacity_json,installed_at,warranty_until,created_at,updated_at,version) VALUES (?,?,?,?,?,?,'active',?,?,?,?,?,?,?,1)",[id,serial,manufacturer,model,b.firmwareVersion||null,b.locationId||null,b.terminalMid||null,b.terminalTid||null,JSON.stringify({PET:Number(b.petCapacity||0),ALU:Number(b.aluCapacity||0),GLASS:Number(b.glassCapacity||0)}),installed,warranty,now,now]);
+    entryLog(c.env,me,key,"device.created",{id,serial,manufacturer,model,locationId:b.locationId},b.locationId); return c.json({ok:true,id});
+  });
+
+  app.post("/api/admin/data-entry/driver", requireMaster, async (c) => {
+    const me=c.get(APP_USER_KEY),b=await c.req.json<any>(),key=String(b.clientRequestId||"");if(!key)return c.json({error:"missing_client_request_id"},400);if(entryDuplicate(c.env,key))return c.json({ok:true,duplicate:true});
+    const name=String(b.name||"").trim(),type=String(b.type||"firma");if(name.length<3||!["firma","pracownik","podwykonawca"].includes(type))return c.json({error:"invalid_driver_fields"},400);
+    if(b.bdoNumber&&c.env.sql.query("SELECT id FROM drivers WHERE bdo_number=?",[b.bdoNumber]).length)return c.json({error:"bdo_number_exists"},409);
+    const now=Date.now();c.env.sql.exec("INSERT INTO drivers (name,type,company,bdo_number,bdo_verified,gps_id,status,created_at) VALUES (?,?,?,?,?,?, 'active',?)",[name,type,b.company||null,b.bdoNumber||null,b.bdoVerified?1:0,b.gpsId||null,now]);const id=Number(c.env.sql.query<{id:number}>("SELECT last_insert_rowid() id")[0].id);entryLog(c.env,me,key,"driver.created",{id,name,type,company:b.company,bdoNumber:b.bdoNumber});return c.json({ok:true,id});
+  });
+
+  app.post("/api/admin/data-entry/contract", requireMaster, async (c) => {
+    const me=c.get(APP_USER_KEY),b=await c.req.json<any>(),key=String(b.clientRequestId||"");if(!key)return c.json({error:"missing_client_request_id"},400);if(entryDuplicate(c.env,key))return c.json({ok:true,duplicate:true});
+    const allowed=["lease","implementation","ipz_operator","acquirer","service","carrier"],a=Number(b.partyAOrgId),bb=Number(b.partyBOrgId),vf=Date.parse(b.validFrom),vt=b.validTo?Date.parse(b.validTo):null;
+    if(!allowed.includes(b.type)||!a||!bb||a===bb||!Number.isFinite(vf)||(vt&&vt<=vf))return c.json({error:"invalid_contract_fields"},400);
+    if(c.env.sql.query("SELECT COUNT(*) n FROM organizations WHERE id IN (?,?)",[a,bb])[0].n<2)return c.json({error:"organization_not_found"},400);
+    const now=Date.now();c.env.sql.exec("INSERT INTO contracts (type,party_a_org_id,party_b_org_id,valid_from,valid_to,notice_period_days,file_ref,status,created_at,updated_at,version) VALUES (?,?,?,?,?,?,?,'active',?,?,1)",[b.type,a,bb,vf,vt,Math.max(0,Number(b.noticePeriodDays||30)),b.fileRef||null,now,now]);const id=Number(c.env.sql.query<{id:number}>("SELECT last_insert_rowid() id")[0].id);entryLog(c.env,me,key,"contract.created",{id,...b});return c.json({ok:true,id});
+  });
+
+  app.post("/api/admin/data-entry/collection", requireMaster, async (c) => {
+    const me=c.get(APP_USER_KEY),b=await c.req.json<any>(),key=String(b.clientRequestId||"");if(!key)return c.json({error:"missing_client_request_id"},400);if(entryDuplicate(c.env,key))return c.json({ok:true,duplicate:true});
+    const point=String(b.pointId||""),driver=Number(b.driverId),packages=Number(b.packages),weight=Number(b.weightKg),ts=Date.parse(b.collectedAt);
+    if(!point||!driver||packages<1||weight<=0||!Number.isFinite(ts))return c.json({error:"invalid_collection_fields"},400);
+    if(!c.env.sql.query("SELECT id FROM locations WHERE id=? AND deleted_at IS NULL",[point]).length||!c.env.sql.query("SELECT id FROM drivers WHERE id=?",[driver]).length)return c.json({error:"point_or_driver_not_found"},400);
+    const now=Date.now();c.env.sql.exec("INSERT INTO collections (point_id,driver_id,status,packages,weight_kg,accepted_at,collected_at,cycle_id,created_at) VALUES (?,?,'completed',?,?,?,?,?,?)",[point,driver,packages,weight,ts,ts,b.cycleId?Number(b.cycleId):null,now]);const id=Number(c.env.sql.query<{id:number}>("SELECT last_insert_rowid() id")[0].id);c.env.sql.exec("UPDATE locations SET fill_level=5,last_collection_at=?,updated_at=? WHERE id=?",[ts,now,point]);entryLog(c.env,me,key,"collection.manual_created",{id,packages,weightKg:weight,seals:String(b.seals||"").split(/[;,]/).map((x:string)=>x.trim()).filter(Boolean),gps:{lat:b.gpsLat?Number(b.gpsLat):null,lng:b.gpsLng?Number(b.gpsLng):null}},point,b.cycleId?Number(b.cycleId):null);return c.json({ok:true,id});
+  });
+
+  app.post("/api/admin/data-entry/invoice", requireMaster, async (c) => {
+    const me=c.get(APP_USER_KEY),b=await c.req.json<any>(),key=String(b.clientRequestId||"");if(!key)return c.json({error:"missing_client_request_id"},400);if(entryDuplicate(c.env,key))return c.json({ok:true,duplicate:true});
+    const ksef=String(b.ksefNumber||"").trim(),title=String(b.title||"").trim(),recipient=String(b.recipient||"").trim(),amount=Math.round(Number(b.amountPln)*100);
+    if(ksef.length<5||title.length<3||recipient.length<2||!Number.isFinite(amount)||!b.issueDate)return c.json({error:"invalid_invoice_fields"},400);if(c.env.sql.query("SELECT id FROM invoices WHERE ksef_number=?",[ksef]).length)return c.json({error:"ksef_number_exists"},409);
+    const now=Date.now();c.env.sql.exec("INSERT INTO invoices (ksef_number,recipient,investor_id,driver_id,title,amount_grosze,issue_date,status,created_at) VALUES (?,?,?,?,?,?,?,?,?)",[ksef,recipient,b.investorId?Number(b.investorId):null,b.driverId?Number(b.driverId):null,title,amount,b.issueDate,b.status||"robocza",now]);const id=Number(c.env.sql.query<{id:number}>("SELECT last_insert_rowid() id")[0].id);entryLog(c.env,me,key,"invoice.manual_created",{id,ksef,title,recipient,amount});return c.json({ok:true,id});
+  });
+
+  app.post("/api/admin/data-entry/dispute", requireMaster, async (c) => {
+    const me=c.get(APP_USER_KEY),b=await c.req.json<any>(),key=String(b.clientRequestId||"");if(!key)return c.json({error:"missing_client_request_id"},400);if(entryDuplicate(c.env,key))return c.json({ok:true,duplicate:true});
+    const cycle=Number(b.cycleId),point=String(b.pointId||""),amount=Math.round(Number(b.amountPln)*100),due=Date.parse(b.dueAt);if(!cycle||!point||amount<=0||!Number.isFinite(due)||String(b.reason||"").length<5)return c.json({error:"invalid_dispute_fields"},400);
+    const now=Date.now(),evidence=[{type:"manual_note",value:String(b.evidence||b.reason),createdBy:me.id,createdAt:now}];c.env.sql.exec("INSERT INTO reconciliations (cycle_id,scope_type,scope_ref,source_a_json,source_b_json,source_c_json,delta_pct,status,created_at) VALUES (?,'location',?,?,?,?,?,'disputed',?)",[cycle,point,JSON.stringify({source:"manual",reason:b.reason}),null,null,Number(b.deltaPct||0),now]);const reconId=Number(c.env.sql.query<{id:number}>("SELECT last_insert_rowid() id")[0].id);c.env.sql.exec("INSERT INTO disputes (reconciliation_id,state,due_at,evidence_json,disputed_amount_grosze,outcome,default_action_taken,created_at,updated_at) VALUES (?,'EVIDENCE_REQUIRED',?,?,?,NULL,0,?,?)",[reconId,due,JSON.stringify(evidence),amount,now,now]);const id=Number(c.env.sql.query<{id:number}>("SELECT last_insert_rowid() id")[0].id);entryLog(c.env,me,key,"dispute.manual_created",{id,reconId,reason:b.reason,amount},point,cycle);return c.json({ok:true,id,reconciliationId:reconId});
+  });
+
   // ── PROMPT 19: pełne dane pokazowe modułów MVP (idempotentne) ───────────
   app.get("/api/admin/dev/seed-mvp-showcase", requireMaster, async (c) => {
     const seedKey = "seed:mvp-showcase:v1";

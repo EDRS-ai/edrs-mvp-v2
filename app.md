@@ -295,3 +295,18 @@ Powód: poprzedni H1 „Poznaj edrs.io — kompleksowy system...” był zbyt bl
 - 4 faktury demo: abonament 6 pkt, moduł kierowcy 3 pojazdy, abonament 4 pkt i korekta NET-007; widoczność scoped per inwestor.
 - 5 historycznych zdarzeń kierowcy: ACCEPTED, COMPLETED i FAILED z reason codes, GPS, timestamp, plomba/photoRef; jedno z `sync_source=offline`.
 - E2E browser_use: seed zwrócił `{cycleId:4,reconciliations:6,disputes:2,invoices:4,driverEvents:5,manifestGroups:2,manifestLegs:8}`; master widzi spory i hold; inwestor A widzi dwie własne faktury i finanse; kierowca widzi zlecenia i outbox. Zero błędów JS/runtime.
+
+## PROMPT 20 — profesjonalne formularze wprowadzania danych (2026-08-13)
+
+- Nowa zakładka master „Wprowadzanie danych” z 6 kartami procesowymi, nie jednym formularzem ogólnym: Urządzenie RVM, Kierowca/przewoźnik, Kontrakt, Odbiór ręczny, Faktura, Spór.
+- `GET /api/admin/data-entry/options`: organizacje, rzeczywiste lokalizacje, kierowcy, cykle i inwestorzy do dropdownów; dane odświeżają się po zapisie.
+- 6 walidowanych endpointów POST `/api/admin/data-entry/{device|driver|contract|collection|invoice|dispute}`; master-only, `clientRequestId` wymagany, idempotencja przez unikalny `event_log.idempotency_key`.
+- Urządzenie: ID, serial, producent, model, firmware, lokalizacja, terminal MID/TID, pojemności PET/ALU/szkło, instalacja i gwarancja; walidacja duplikatu ID/serial.
+- Kierowca/przewoźnik: nazwa, typ, firma, BDO + status weryfikacji, ID GPS; walidacja unikalności BDO.
+- Kontrakt: typ z zamkniętego katalogu, strony organizacyjne, valid_from/to, wypowiedzenie, referencja dokumentu; strony muszą istnieć i być różne.
+- Odbiór ręczny: punkt, kierowca, cykl, liczba opakowań, masa, timestamp, plomby, GPS; aktualizuje ostatni odbiór punktu, plomby/GPS w event_log.
+- Faktura: KSeF/roboczy numer, odbiorca, inwestor/kierowca, tytuł, kwota PLN, data, status; unikalny numer KSeF.
+- Spór: cykl, punkt, kwota, deadline, delta%, powód i dowód; tworzy reconciliation + dispute `EVIDENCE_REQUIRED`.
+- UI: wymagane pola oznaczone, podpowiedzi domenowe, responsywny grid, zielony komunikat ID po sukcesie, komunikat walidacji po błędzie.
+- Naprawa po UAT-01: `entryLog` miał 11 wartości dla 10 kolumn i zwracał 500 po poprawnym zapisie. Poprawiono liczbę placeholderów i dodano defensywny catch z `ENTRY_LOG_FAILED`.
+- E2E UAT-02: zapisane 6/6 rekordów przez UI: device RVM-UAT-014, driver #8, contract #9, collection #15, invoice #13, dispute #5 / reconciliation #9. Reload potwierdził nowego kierowcę w dropdown; zero błędów JS.
