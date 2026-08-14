@@ -342,3 +342,16 @@ Moduł zarządzania energią wzorowany na procesach Comarch ERP XL / enova365 (f
 - Faktury: PASS 644,57 zł; WARNING 965,61 zł; FAIL 548,28 zł. PASS wyeksportowany do CSV i potwierdzony `BANK-DEMO-ENERGY-001` → SETTLED / PAID_RECONCILED.
 - Manual reading id=95, 100 kWh vs baseline 31,23 kWh utworzył alert `CONSUMPTION_SPIKE` id=3 (3,2× baseline). Seed POST po ponownym uruchomieniu zwraca `already:true`.
 - Browser E2E bez błędów JS. Znane ograniczenie: dane demo, brak realnego API dostawcy energii, KSeF i banku; integracje są następną warstwą po wyborze partnerów.
+
+## PROMPT 22 — wszystkie pozostałe koszty i rozliczenia inwestycji (2026-08-14)
+
+- Nowa zakładka master `Pozostałe koszty`: INTERNET, LEASING, INSURANCE, SERVICE, RENT, LOGISTICS, FUEL, SOFTWARE, ADMIN, OTHER.
+- Migracja `0006_remaining_investment_costs`: `cost_contracts`, `cost_metrics`, `cost_invoices`, `cost_payment_orders`, `cost_alerts` z indeksami i unikalnościami.
+- Umowa kosztowa przechowuje: dostawcę/NIP/rachunek, kategorię, punkt/urządzenie/kierowcę, numer i tytuł, model rozliczenia (`monthly_fixed|installment|per_unit|usage`), plan miesięczny, stawkę jednostkową, budżet, okres, termin, centrum kosztów i metadane kategorii.
+- Metryka operacyjna: okres, nazwa, wartość, jednostka, źródło i jakość. Demo: data_usage GB, installment_no nr, claims count, service_hours h, area m2, distance km.
+- Faktura kosztowa: umowa/kategoria/punkt, okres, ilość/jednostka, netto/VAT/brutto, termin, dokument i metadata. `validateCostInvoice`: stała/rata porównywana z planem; per_unit z ilość × stawka. PASS ≤3%, WARNING ≤10%, FAIL >10%; WARNING/FAIL tworzy `COST_VARIANCE` alert.
+- Workflow płatności: APPROVED_FOR_PAYMENT / ON_HOLD → ręczne potwierdzenie z wyciągu → SETTLED / PAID_RECONCILED. FAIL blokuje akceptację, WARNING pozostaje ON_HOLD.
+- Dashboard: aktywne umowy, kwota do zapłaty, przeterminowane, alerty, tabela plan vs wykonanie i odchylenie per kategoria.
+- Formularze: Umowa, Metryka, Faktura; idempotentne endpointy `/api/admin/costs/*` i seed POST `/api/admin/dev/seed-costs`.
+- Idempotentny seed: 6 umów i faktur (internet, leasing, ubezpieczenie, serwis, czynsz, logistyka) + 6 metryk i payment orders.
+- E2E: 6 aktywnych umów, 4 961,82 zł brutto do zapłaty, 3 przeterminowane, 2 alerty. PASS: internet/insurance/rent/logistics; WARNING leasing +3,33%; FAIL service +12%. Faktura internetowa potwierdzona `COST-DEMO-BANK-001` → SETTLED / PAID_RECONCILED. Formularze i dashboard bez błędów JS/SQL.

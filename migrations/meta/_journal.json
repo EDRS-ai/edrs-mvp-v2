@@ -43,6 +43,13 @@
       "when": 1786663746269,
       "tag": "0005_energy_management",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1786665354394,
+      "tag": "0006_remaining_investment_costs",
+      "breakpoints": true
     }
   ]
 }
