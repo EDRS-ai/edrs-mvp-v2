@@ -1,4 +1,4 @@
-import { hashPassword, newToken } from "./auth";
+import { newToken } from "./auth";
 import { investors, drivers, points, collections, settlements, invoices, users, invites, sessions, settlementCycles, operatorCredits, sorterReceipts, eventLog, organizations, regions, locations, locationOperators, devices, deviceShadow, deviceHeartbeats, contracts, rateCards, logisticMinimums, memberships, operatorTerms } from "../schema";
 
 const POINTS_DATA = [
@@ -174,7 +174,16 @@ const LOGISTIC_MINIMUMS_DATA = [
   { contractId: 2, frequency: "5_day", minimumUnits: 100, incidentalPickupFeeGrosze: 30000 },
 ];
 
-const SEED_PASSWORD = "edrs2026";
+// Rotacja dostępów (deploy/cloudflare-prod): konta seedowane dostają prekomputowane
+// hashe PBKDF2-SHA256 (100k iteracji — identycznie jak hashPassword w lib/auth.ts).
+// Jawne hasła NIE żyją w repo (repo jest publiczne) — wyłącznie w pliku
+// dostepy-produkcja.txt poza repo. Stare hasło "edrs2026" nie działa.
+const SEED_CREDENTIALS: Record<string, { salt: string; hash: string }> = {
+  "maciej@net4zero.pl":     { salt: "412d0a327c9ce049e25066c1542591df", hash: "5b8d945f22e264bae8b1a2c9d82ad368bed79f22912c1fb8e014f3c33774528a" },
+  "inwestor.a@net4zero.pl": { salt: "82dcf355fddce30353935b7b440f5730", hash: "281c9e448619ccb3bda6f713cb3419e9a82a694101be764bf8d7b213d355ed76" },
+  "inwestor.b@net4zero.pl": { salt: "deac5892aafc3d3214517b86e1b8e504", hash: "7a98a3753b704af8d448da118d55b3bb86a3f22b612a89b8d2e9c25e1c686e75" },
+  "kierowca@net4zero.pl":   { salt: "20d62432dc11bdebd7aa1bf56b430a76", hash: "3e38c40cf86d69559c202ae05b3d7c40bc6efe9304753d42ff388c26b8f72773" },
+};
 
 export async function ensureSeeded(env: any) {
   const existing = env.sql.query<{ value: string }>("SELECT value FROM meta WHERE key='seeded'");
@@ -525,7 +534,7 @@ export async function reseed(env: any) {
 async function seed(env: any) {
   const now = Date.now();
 
-  const masterPwd = await hashPassword(SEED_PASSWORD);
+  const masterPwd = SEED_CREDENTIALS["maciej@net4zero.pl"];
   env.sql.exec(
     "INSERT INTO users (email, name, role, password_hash, salt, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
     ["maciej@net4zero.pl", "Maciej Machłajewski", "master", masterPwd.hash, masterPwd.salt, "active", now]
@@ -534,12 +543,12 @@ async function seed(env: any) {
   const investorAId = insertInvestor(env, "Wspólnota Wilanów / Inwestor A", "wspolnota", now);
   const investorBId = insertInvestor(env, "Fundacja Eko Praga / Inwestor B", "fundacja", now);
 
-  const investorAPwd = await hashPassword(SEED_PASSWORD);
+  const investorAPwd = SEED_CREDENTIALS["inwestor.a@net4zero.pl"];
   env.sql.exec(
     "INSERT INTO users (email, name, role, password_hash, salt, investor_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     ["inwestor.a@net4zero.pl", "Anna Wiśniewska (Inwestor A)", "investor", investorAPwd.hash, investorAPwd.salt, investorAId, "active", now]
   );
-  const investorBPwd = await hashPassword(SEED_PASSWORD);
+  const investorBPwd = SEED_CREDENTIALS["inwestor.b@net4zero.pl"];
   env.sql.exec(
     "INSERT INTO users (email, name, role, password_hash, salt, investor_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     ["inwestor.b@net4zero.pl", "Tomasz Zieliński (Inwestor B)", "investor", investorBPwd.hash, investorBPwd.salt, investorBId, "active", now]
@@ -558,7 +567,7 @@ async function seed(env: any) {
     const id = insertDriver(env, d, now);
     driverIds.push(id);
   }
-  const driverPwd = await hashPassword(SEED_PASSWORD);
+  const driverPwd = SEED_CREDENTIALS["kierowca@net4zero.pl"];
   env.sql.exec(
     "INSERT INTO users (email, name, role, password_hash, salt, driver_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     ["kierowca@net4zero.pl", "Jan Kowalski", "driver", driverPwd.hash, driverPwd.salt, driverIds[0], "active", now]

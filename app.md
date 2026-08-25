@@ -22,11 +22,7 @@ Clean rebuild. Difference from `edrs-mvp`:
 
 Scope is strictly PROMPT 0. Schema and business logic unchanged beyond the `last_activity_at` column required by idle timeout. No new features.
 
-Demo logins (seeded on first deploy):
-- Master: `maciej@net4zero.pl` / `edrs2026`
-- Investor A: `inwestor.a@net4zero.pl` / `edrs2026`
-- Investor B: `inwestor.b@net4zero.pl` / `edrs2026`
-- Driver: `kierowca@net4zero.pl` / `edrs2026`
+Demo logins (seeded on first deploy): master `maciej@net4zero.pl`, investor A `inwestor.a@net4zero.pl`, investor B `inwestor.b@net4zero.pl`, driver `kierowca@net4zero.pl`. Hasła: plik `dostepy-produkcja.txt` poza repo (repo jest publiczne — bez sekretów).
 
 
 ## PROMPT 6 (Scale-Ready) — Postgres dual-driver

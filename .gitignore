@@ -1,0 +1,8 @@
+node_modules/
+.wrangler/
+# artefakty builda frontendu (npm run build)
+public/client.js
+public/styles.css
+public/vendor/
+# lokalne sekrety wranglera
+.dev.vars

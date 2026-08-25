@@ -236,7 +236,9 @@ describe("PROMPT 1 — data model", () => {
         "SELECT rate_value FROM rate_cards WHERE contract_id = 2 AND fraction = 'PET' AND valid_from <= ? AND (valid_to IS NULL OR valid_to > ?) ORDER BY valid_from DESC LIMIT 1",
         [twoYearsAgo, twoYearsAgo]
       );
-      expect(rate).toBeUndefined();
+      // env.sql.query zwraca tablicę wierszy — brak dopasowania = pusta tablica,
+      // a "brak stawki" to jej pierwszy element (undefined).
+      expect(rate[0]).toBeUndefined();
     });
 
     it("distinguishes by fraction × collection_model × packaging_type (4 dimensions)", () => {
@@ -412,10 +414,11 @@ describe("PROMPT 1 — data model", () => {
         "SELECT org_id, role, scope_type FROM memberships WHERE user_id = 1 ORDER BY org_id"
       );
       expect(memberships.length).toBe(2);
-      expect(memberships[0].role).toBe("investor");
-      expect(memberships[0].scope_type).toBe("location");
-      expect(memberships[1].role).toBe("network_operator");
-      expect(memberships[1].scope_type).toBeNull();
+      // ORDER BY org_id: org 40 (network_operator, bez scope) przed org 41 (investor, scope location).
+      expect(memberships[0].role).toBe("network_operator");
+      expect(memberships[0].scope_type).toBeNull();
+      expect(memberships[1].role).toBe("investor");
+      expect(memberships[1].scope_type).toBe("location");
     });
   });
 });

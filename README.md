@@ -1,7 +1,28 @@
 # edrs-mvp-v2
 
 **Clean rebuild** per Sprint 2 spec — system rozliczeń kaucyjnych dla sieci RVM w Polsce (Śląsk/Wrocław pilot).
-Live: https://edrs-mvp-v2-m75lwujx.sauna.new/
+Dev/preview (Sauna): https://edrs-mvp-v2-m75lwujx.sauna.new/
+Produkcja: Cloudflare Workers — patrz sekcja **Deployment** niżej.
+
+## Deployment (produkcja: Cloudflare Workers)
+
+**Architektura:**
+- Compute: Cloudflare Workers (`edrs-platform`), entrypoint `src/worker.ts`.
+- Baza: SQLite w Durable Object `EdrsDatabase`, **jurysdykcja EU** (`jurisdiction("eu")` — dane nie opuszczają UE). Migracje `migrations/*.sql` aplikowane automatycznie przy pierwszym starcie DO, seed przy pierwszym requeście.
+- Frontend: statyczne assety z `public/` (assets binding); `npm run build` bunduje `client.js` (esbuild), `styles.css` (Tailwind CLI) i wenduje Leaflet — zero CDN-ów runtime'owych poza Google Fonts.
+- Cron: `0 * * * *` → `scheduled()` → agenci wewnętrzni (`lib/agents.ts`).
+- Ścieżka `DATABASE_URL` → Neon Postgres pozostaje w `src/db.ts`, ale **nie jest jeszcze aktywna** — ~495 wywołań idzie po synchronicznym `env.sql`; aktywacja wymaga przepisania warstwy danych (sync→async + dialekt PG). Do tego czasu NIE ustawiać `DATABASE_URL` na produkcji.
+- Sauna.new: zdegradowana do dev/preview (handler.ts zachowuje kompatybilny default export).
+
+**Deploy:**
+```
+npm run deploy   # build + testy (48/48 wymagane) + wrangler deploy
+```
+Wymagane zmienne środowiskowe sesji (nigdy w repo): `CLOUDFLARE_API_TOKEN` (szablon "Edit Cloudflare Workers"), `CLOUDFLARE_ACCOUNT_ID`.
+
+**Sekrety:** hasła kont seedowanych — w repo wyłącznie hashe PBKDF2 (`src/lib/seed.ts`); jawne wartości w pliku `dostepy-produkcja.txt` **poza repo**. Tokeny Cloudflare — tylko env sesji.
+
+**Rollback:** `npx wrangler rollback` (lub `npx wrangler versions list` + `npx wrangler versions deploy <id>`).
 
 ## Sprint 2 — co jest zrobione
 
@@ -72,12 +93,7 @@ Live: https://edrs-mvp-v2-m75lwujx.sauna.new/
 
 ## Demo logins (master panel)
 
-| Rola | Email | Hasło |
-|---|---|---|
-| Master (CEO NET4ZERO) | maciej@net4zero.pl | `edrs2026` |
-| Investor A (Wspólnota Wilanów) | inwestor.a@net4zero.pl | `edrs2026` |
-| Investor B (Fundacja Eko Praga) | inwestor.b@net4zero.pl | `edrs2026` |
-| Driver (Jan Kowalski) | kierowca@net4zero.pl | `edrs2026` |
+Konta seedowane: master (maciej@), investor A (inwestor.a@), investor B (inwestor.b@), driver (kierowca@) — wszystkie w domenie net4zero.pl. **Hasła nie są publikowane w repo** — żyją w pliku `dostepy-produkcja.txt` poza repozytorium (patrz sekcja Deployment).
 
 Master ma pełny panel z 6 zakładkami (włącznie z nową Spory i Katalog EAN).
 

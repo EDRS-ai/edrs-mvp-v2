@@ -442,8 +442,8 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
 }
 
 function LoginScreen({ onSuccess }: { onSuccess: (u: User) => void }) {
-  const [email, setEmail] = useState("maciej@net4zero.pl");
-  const [password, setPassword] = useState("edrs2026");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const submit = async (e: any) => {
@@ -477,13 +477,6 @@ function LoginScreen({ onSuccess }: { onSuccess: (u: User) => void }) {
           </div>
           {error && <div className="text-sm text-red-700 bg-red-50 p-2 rounded">{error}</div>}
           <button type="submit" disabled={busy} className="w-full bg-brand-blue text-white py-2.5 rounded-md font-medium hover:bg-brand-bluedark disabled:opacity-50">{busy ? "Logowanie..." : "Zaloguj się"}</button>
-          <div className="text-xs text-gray-500 border-t border-gray-200 pt-3">
-            <div className="font-medium mb-1">Konta demo (hasło: edrs2026):</div>
-            <div>maciej@net4zero.pl — master</div>
-            <div>inwestor.a@net4zero.pl — inwestor</div>
-            <div>inwestor.b@net4zero.pl — inwestor</div>
-            <div>kierowca@net4zero.pl — kierowca</div>
-          </div>
           <div className="text-xs text-gray-400 text-center pt-1">
             Logując się akceptujesz <a href="/regulamin" className="text-brand-blue hover:underline">Regulamin</a> i <a href="/polityka-prywatnosci" className="text-brand-blue hover:underline">Politykę prywatności</a>.
           </div>

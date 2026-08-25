@@ -1,0 +1,43 @@
+{
+  // edrs.io — produkcja: Cloudflare Workers (konto biuro@net4zero.pl).
+  // account_id celowo NIE jest wpisany (repo publiczne) — deploy czyta
+  // CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN ze zmiennych środowiskowych.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "edrs-platform",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Frontend: statyczne assety z public/ (index.html, client.js po buildzie,
+  // styles.css, vendor/leaflet). Requesty bez pasującego assetu idą do workera.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+
+  // Baza: SQLite w Durable Object, jurysdykcja EU (RODO — dane nie opuszczają UE).
+  // Ścieżka DATABASE_URL→Neon pozostaje w db.ts; aktywacja po przepisaniu
+  // warstwy danych (patrz README sekcja Deployment).
+  "durable_objects": {
+    "bindings": [
+      { "name": "EDRS_DB", "class_name": "EdrsDatabase" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["EdrsDatabase"] }
+  ],
+
+  // Cron co godzinę — agenci wewnętrzni (runAllAgents), jak triggers.schedule w app.md.
+  "triggers": {
+    "crons": ["0 * * * *"]
+  },
+
+  // Import plików .sql z migrations/ jako tekst (aplikowane przy starcie DO).
+  "rules": [
+    { "type": "Text", "globs": ["**/*.sql"], "fallthrough": true }
+  ],
+
+  "observability": {
+    "enabled": true
+  }
+}
