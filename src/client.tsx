@@ -368,11 +368,11 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
       </section>
 
       <section id="pricing" className="py-16 bg-gray-50 border-t border-gray-100">
-        <div className="max-w-3xl mx-auto px-6 text-center">
-          <h2 className="font-heading text-3xl font-bold text-brand-navy mb-3">Dostęp do platformy</h2>
-          <p className="text-gray-600 mb-8">Warunki dopasowujemy do skali sieci — liczby punktów, pojazdów i wolumenu kaucji. Napisz do nas, wrócimy z ofertą i dostępem demo.</p>
-          <a href="mailto:maciej@edrs.io?subject=edrs.io%20—%20zapytanie%20o%20dost%C4%99p" className="inline-block bg-brand-orange hover:bg-brand-orangedark text-white font-heading font-bold text-lg px-10 py-4 rounded-xl transition-colors">Zapytaj o dostęp</a>
-          <div className="text-sm text-gray-500 mt-4">KSeF, sprawozdawczość i Bank Data Room zawsze w cenie platformy.</div>
+        <div className="max-w-3xl mx-auto px-6">
+          <h2 className="font-heading text-3xl font-bold text-brand-navy mb-3 text-center">Dostęp do platformy</h2>
+          <p className="text-gray-600 mb-8 text-center">Warunki dopasowujemy do skali sieci — liczby punktów, pojazdów i wolumenu kaucji. Zostaw kontakt, wrócimy z ofertą i dostępem demo.</p>
+          <AccessRequestForm />
+          <div className="text-sm text-gray-500 mt-4 text-center">KSeF, sprawozdawczość i Bank Data Room zawsze w cenie platformy.</div>
         </div>
       </section>
 
@@ -422,6 +422,65 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
         </div>
       </footer>
     </div>
+  );
+}
+
+// Formularz "Zapytaj o dostęp" na landingu — POST /api/public/access-request.
+// Zgłoszenia widoczne w panelu mastera (zakładka Zgłoszenia). Pole "website"
+// to honeypot na boty (ukryte w UI, wypełnione = zgłoszenie ignorowane).
+function AccessRequestForm() {
+  const [form, setForm] = useState({ name: "", company: "", email: "", phone: "", message: "", website: "" });
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const set = (k: string) => (e: any) => setForm((f) => ({ ...f, [k]: (e.target as HTMLInputElement).value }));
+  const submit = async (e: any) => {
+    e.preventDefault();
+    setError(null); setBusy(true);
+    try {
+      await api("/api/public/access-request", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(form) });
+      setSent(true);
+    } catch (err: any) {
+      setError(err.message === "too_many_requests" ? "Za dużo zgłoszeń z tego adresu — spróbuj jutro." : "Nie udało się wysłać. Sprawdź pola i spróbuj ponownie.");
+    } finally { setBusy(false); }
+  };
+  if (sent) {
+    return (
+      <div className="bg-white rounded-2xl border-2 border-green-200 p-10 text-center">
+        <div className="font-heading text-2xl font-bold text-brand-navy mb-2">Dziękujemy za zgłoszenie!</div>
+        <div className="text-gray-600">Odezwiemy się na podany adres w ciągu 24 godzin roboczych.</div>
+      </div>
+    );
+  }
+  const inputCls = "w-full px-3 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-blue";
+  return (
+    <form onSubmit={submit} className="bg-white rounded-2xl border-2 border-gray-200 p-8 space-y-4">
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Imię i nazwisko *</label>
+          <input type="text" required value={form.name} onChange={set("name")} className={inputCls} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Firma / sieć</label>
+          <input type="text" value={form.company} onChange={set("company")} className={inputCls} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">E-mail *</label>
+          <input type="email" required value={form.email} onChange={set("email")} className={inputCls} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+          <input type="tel" value={form.phone} onChange={set("phone")} className={inputCls} />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Wiadomość * <span className="font-normal text-gray-400">(np. ile punktów, jaka lokalizacja)</span></label>
+        <textarea required rows={4} value={form.message} onChange={set("message")} className={inputCls} />
+      </div>
+      <input type="text" value={form.website} onChange={set("website")} tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
+      {error && <div className="text-sm text-red-700 bg-red-50 p-2 rounded">{error}</div>}
+      <button type="submit" disabled={busy} className="w-full bg-brand-orange hover:bg-brand-orangedark text-white font-heading font-bold text-lg py-3.5 rounded-xl transition-colors disabled:opacity-50">{busy ? "Wysyłanie..." : "Zapytaj o dostęp"}</button>
+    </form>
   );
 }
 
@@ -528,6 +587,7 @@ function MasterApp({ user, onLogout }: { user: User; onLogout: () => void }) {
     { id: "events", label: "Event log", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
     { id: "agents", label: "Agenci", icon: "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
     { id: "wiadomosci", label: "Wiadomości", icon: "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" },
+    { id: "zgloszenia", label: "Zgłoszenia", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
     { id: "dokumenty", label: "Dokumenty", icon: "M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
     { id: "sprawozdania", label: "Sprawozdania", icon: "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
   ];
@@ -557,9 +617,49 @@ function MasterApp({ user, onLogout }: { user: User; onLogout: () => void }) {
       {view === "events" && <MasterEvents />}
       {view === "agents" && <MasterAgents />}
       {view === "wiadomosci" && <MasterWiadomosci />}
+      {view === "zgloszenia" && <MasterZgloszenia />}
       {view === "dokumenty" && <MasterDokumenty />}
       {view === "sprawozdania" && <MasterSprawozdania />}
     </NavShell>
+  );
+}
+
+// Zakładka Zgłoszenia — lista z formularza "Zapytaj o dostęp" na landingu.
+function MasterZgloszenia() {
+  const [requests, setRequests] = useState<any[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const reload = useCallback(async () => {
+    try { setError(null); const d = await api("/api/admin/access-requests"); setRequests(d.requests); }
+    catch (err: any) { setError(err.message); }
+  }, []);
+  useEffect(() => { reload(); }, [reload]);
+  const markHandled = async (id: number) => { await api(`/api/admin/access-requests/${id}/handle`, { method: "POST" }); reload(); };
+  if (error) return <ErrorBox message={error} />;
+  if (!requests) return <Loading />;
+  if (requests.length === 0) return <div className="p-8 text-center text-gray-500">Brak zgłoszeń. Formularz „Zapytaj o dostęp" na landingu zapisuje zgłoszenia tutaj.</div>;
+  return (
+    <div className="space-y-4">
+      {requests.map((r) => (
+        <div key={r.id} className={`bg-white rounded-lg border p-5 ${r.handled_at ? "border-gray-200 opacity-60" : "border-brand-blue"}`}>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="font-semibold">{r.name}{r.company ? <span className="text-gray-500 font-normal"> · {r.company}</span> : null}</div>
+              <div className="text-sm text-brand-blue mt-0.5">
+                <a href={`mailto:${r.email}`} className="hover:underline">{r.email}</a>
+                {r.phone ? <span className="text-gray-500"> · tel. {r.phone}</span> : null}
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-xs text-gray-400">{fmtDateTime(r.created_at)}</div>
+              {r.handled_at
+                ? <div className="text-xs text-green-700 mt-1">obsłużone {fmtDate(r.handled_at)}</div>
+                : <button onClick={() => markHandled(r.id)} className="mt-1 text-xs px-3 py-1.5 bg-brand-blue text-white rounded hover:bg-brand-bluedark">Oznacz jako obsłużone</button>}
+            </div>
+          </div>
+          <div className="text-sm text-gray-700 mt-3 whitespace-pre-wrap">{r.message}</div>
+        </div>
+      ))}
+    </div>
   );
 }
 

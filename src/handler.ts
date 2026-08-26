@@ -69,7 +69,7 @@ export function createApp() {
     await next();
   });
 
-  const ANON_PATHS = new Set(["/api/me", "/api/auth/login", "/api/auth/signup"]);
+  const ANON_PATHS = new Set(["/api/me", "/api/auth/login", "/api/auth/signup", "/api/public/access-request"]);
   app.use("/api/*", async (c, next) => {
     const path = c.req.path;
     const isAnon = ANON_PATHS.has(path) || path.startsWith("/api/invites/");
@@ -85,6 +85,53 @@ export function createApp() {
     if (!user) return c.json({ user: null });
     return c.json({ user });
   });
+
+  // ── Zgłoszenia dostępu (landing "Zapytaj o dostęp") ──────────────────────
+  // Publiczny formularz zamiast mailto (mailto wymaga skonfigurowanego klienta
+  // poczty). Zgłoszenia lądują w access_requests i są widoczne w panelu mastera.
+  function ensureAccessRequestsTable(env: any) {
+    env.sql.exec(`CREATE TABLE IF NOT EXISTS access_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      company TEXT,
+      email TEXT NOT NULL,
+      phone TEXT,
+      message TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      handled_at INTEGER
+    )`, []);
+  }
+
+  app.post("/api/public/access-request", async (c) => {
+    ensureAccessRequestsTable(c.env);
+    let body: any;
+    try { body = await c.req.json(); } catch { return c.json({ error: "invalid_json" }, 400); }
+    // Honeypot: pole "website" jest ukryte w UI — bot, który je wypełni,
+    // dostaje pozorny sukces bez zapisu.
+    if (typeof body?.website === "string" && body.website.trim() !== "") return c.json({ ok: true });
+    const name = String(body?.name ?? "").trim().slice(0, 200);
+    const company = String(body?.company ?? "").trim().slice(0, 200);
+    const email = String(body?.email ?? "").trim().slice(0, 200);
+    const phone = String(body?.phone ?? "").trim().slice(0, 50);
+    const message = String(body?.message ?? "").trim().slice(0, 2000);
+    if (!name || !email || !message) return c.json({ error: "missing_fields" }, 400);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return c.json({ error: "invalid_email" }, 400);
+    ensureAccessRequestsTable(c.env);
+    // Prosty rate limit: max 5 zgłoszeń z tym samym e-mailem na dobę.
+    const dayAgo = Date.now() - 86400000;
+    const recent = Number(c.env.sql.query<{ n: number }>(
+      "SELECT COUNT(*) AS n FROM access_requests WHERE email = ? AND created_at > ?", [email, dayAgo]
+    )[0]?.n ?? 0);
+    if (recent >= 5) return c.json({ error: "too_many_requests" }, 429);
+    const now = Date.now();
+    c.env.sql.exec(
+      "INSERT INTO access_requests (name, company, email, phone, message, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      [name, company || null, email, phone || null, message, now]
+    );
+    logEvent(c.env, { eventType: "access_request_created", payload: { email, company } });
+    return c.json({ ok: true });
+  });
+
 
   app.post("/api/auth/login", async (c) => {
     const { email, password } = await c.req.json<{ email: string; password: string }>();
@@ -171,6 +218,20 @@ export function createApp() {
   const requireInvestor = requireRole("investor");
   const requireDriver = requireRole("driver");
   const requireMasterOrInvestor = requireRole("master", "investor");
+
+  app.get("/api/admin/access-requests", requireMaster, async (c) => {
+    ensureAccessRequestsTable(c.env);
+    const rows = c.env.sql.query<any>(
+      "SELECT id, name, company, email, phone, message, created_at, handled_at FROM access_requests ORDER BY id DESC LIMIT 200"
+    );
+    return c.json({ requests: rows });
+  });
+
+  app.post("/api/admin/access-requests/:id/handle", requireMaster, async (c) => {
+    ensureAccessRequestsTable(c.env);
+    c.env.sql.exec("UPDATE access_requests SET handled_at = ? WHERE id = ?", [Date.now(), Number(c.req.param("id"))]);
+    return c.json({ ok: true });
+  });
 
   // PROMPT 8: mapowanie legacy investors.id → organizations.id. Seed PROMPT 1 celowo
   // trzyma IDENTYCZNE nazwy w obu tabelach — join po nazwie, bez magic numbers.
