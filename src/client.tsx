@@ -168,7 +168,7 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
           <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-gray-600">
             <a href="#dla-kogo" className="hover:text-brand-blue">Dla kogo</a>
             <a href="#rozwiazanie" className="hover:text-brand-blue">Moduły</a>
-            <a href="#pricing" className="hover:text-brand-blue">Cennik</a>
+            <a href="#pricing" className="hover:text-brand-blue">Dostęp</a>
             <a href="/regulamin" className="hover:text-brand-blue">Regulamin</a>
           </nav>
           <div className="flex items-center gap-3">
@@ -368,27 +368,11 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
       </section>
 
       <section id="pricing" className="py-16 bg-gray-50 border-t border-gray-100">
-        <div className="max-w-6xl mx-auto px-6">
-          <h2 className="font-heading text-3xl font-bold text-brand-navy text-center mb-3">Płacisz za rozliczone opakowania, nie za obietnice</h2>
-          <p className="text-gray-600 text-center mb-10">Stały abonament za punkt + 0,5% od wolumenu kaucji. KSeF i sprawozdania w cenie.</p>
-          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            <div className="bg-white p-8 rounded-2xl border-2 border-gray-200">
-              <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Abonament platformy</div>
-              <div className="mt-3 flex items-baseline gap-1"><div className="font-heading text-4xl font-bold text-brand-navy">500 zł</div><div className="text-sm text-gray-500">/ punkt / mc</div></div>
-              <div className="text-sm text-gray-500 mt-1">netto · stała opłata</div>
-            </div>
-            <div className="bg-white p-8 rounded-2xl border-4 border-brand-blue relative">
-              <div className="absolute top-4 right-4 px-2 py-1 bg-brand-blue text-white text-xs rounded font-bold">skaluje się</div>
-              <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Moduł kierowcy</div>
-              <div className="mt-3 flex items-baseline gap-1"><div className="font-heading text-4xl font-bold text-brand-navy">220 zł</div><div className="text-sm text-gray-500">/ pojazd / mc</div></div>
-              <div className="text-sm text-gray-500 mt-1">netto · zlecenia i dowody</div>
-            </div>
-            <div className="bg-white p-8 rounded-2xl border-2 border-brand-orange">
-              <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Bank Data Room</div>
-              <div className="mt-3 flex items-baseline gap-1"><div className="font-heading text-4xl font-bold text-brand-navy">0 zł</div><div className="text-sm text-gray-500">dodatkowo</div></div>
-              <div className="text-sm text-gray-500 mt-1">w cenie platformy</div>
-            </div>
-          </div>
+        <div className="max-w-3xl mx-auto px-6 text-center">
+          <h2 className="font-heading text-3xl font-bold text-brand-navy mb-3">Dostęp do platformy</h2>
+          <p className="text-gray-600 mb-8">Warunki dopasowujemy do skali sieci — liczby punktów, pojazdów i wolumenu kaucji. Napisz do nas, wrócimy z ofertą i dostępem demo.</p>
+          <a href="mailto:maciej@edrs.io?subject=edrs.io%20—%20zapytanie%20o%20dost%C4%99p" className="inline-block bg-brand-orange hover:bg-brand-orangedark text-white font-heading font-bold text-lg px-10 py-4 rounded-xl transition-colors">Zapytaj o dostęp</a>
+          <div className="text-sm text-gray-500 mt-4">KSeF, sprawozdawczość i Bank Data Room zawsze w cenie platformy.</div>
         </div>
       </section>
 
@@ -408,7 +392,7 @@ function LandingPage({ onLoginClick, inviteToken }: { onLoginClick: () => void; 
             <ul className="space-y-2">
               <li><a href="#rozwiazanie" className="hover:text-brand-blue">Moduły platformy</a></li>
               <li><a href="#rozwiazanie" className="hover:text-brand-blue">Moduły</a></li>
-              <li><a href="#pricing" className="hover:text-brand-blue">Cennik</a></li>
+              <li><a href="#pricing" className="hover:text-brand-blue">Dostęp</a></li>
             </ul>
           </div>
           <div>
