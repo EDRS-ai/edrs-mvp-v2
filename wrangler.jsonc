@@ -27,6 +27,13 @@
     { "tag": "v1", "new_sqlite_classes": ["EdrsDatabase"] }
   ],
 
+  // Custom Domain aplikacji (strefa edrs.io w CF od 26.08; rekord tworzy się
+  // automatycznie przy deployu — wymaga AKTYWNEJ strefy, czyli NS przełączonych
+  // w GoDaddy na arvind/dina.ns.cloudflare.com).
+  "routes": [
+    { "pattern": "app.edrs.io", "custom_domain": true }
+  ],
+
   // Cron co godzinę — agenci wewnętrzni (runAllAgents), jak triggers.schedule w app.md.
   "triggers": {
     "crons": ["0 * * * *"]
