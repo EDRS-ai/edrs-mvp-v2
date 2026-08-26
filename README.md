@@ -2,7 +2,7 @@
 
 **Clean rebuild** per Sprint 2 spec — system rozliczeń kaucyjnych dla sieci RVM w Polsce (Śląsk/Wrocław pilot).
 Dev/preview (Sauna): https://edrs-mvp-v2-m75lwujx.sauna.new/
-Produkcja: Cloudflare Workers — patrz sekcja **Deployment** niżej.
+Produkcja: https://edrs-platform.edrs-mvp-v2.workers.dev (Cloudflare Workers, deploy 26.08.2026) — patrz sekcja **Deployment** niżej.
 
 ## Deployment (produkcja: Cloudflare Workers)
 
@@ -33,7 +33,7 @@ Wymagane zmienne środowiskowe sesji (nigdy w repo): `CLOUDFLARE_API_TOKEN` (sza
 | 2 | Event log + import: import_profiles, packaging_items (4 EAN), catalog_overrides (per local/global), universal CSV dry-run/commit | ✅ deployed |
 | 3 | Silnik rozliczeń: ledger_entries (niezmienialne, 3 osie dat, 18 entry_types, end_to_end_id), runSettlementEngine (5 stron, ZERO stawek w kodzie), approve/reopen (reversal entries), getLedgerForCycle (invariant credit=debit) | ✅ deployed |
 | 4 | Rekoncyliacja + spory: reconciliations (3 źródła A/B/C, delta_pct, próg 2%), disputes (8 stanów Square Dispute), kalkulator DNI ROBOCZYCH (Gauss + święta stałe), dispute state machine (5 dni roboczych due_at + akcja domyślna), MasterDisputes UI (alerty none/warning/critical/overdue) | ✅ deployed |
-| **5** | **Pilot-Ready:** hash chain (SHA-256 prev_hash→entry_hash, append-only), DISPUTE_HOLD mrozi tylko kwotę sporną (test: 10 pozycji → 9 wypłacone + 1 HELD), operator_terms per kontrakt (Reselekt: 7/14 dni BUSINESS), applyDayType, getThreshold per kontrakt, proportional platform fee (500 zł/pkt/mc za aktywne dni), execute-hold endpoint, export CSV+HTML dla inwestora | ✅ local, **deploy pending** |
+| **5** | **Pilot-Ready:** hash chain (SHA-256 prev_hash→entry_hash, append-only), DISPUTE_HOLD mrozi tylko kwotę sporną (test: 10 pozycji → 9 wypłacone + 1 HELD), operator_terms per kontrakt (Reselekt: 7/14 dni BUSINESS), applyDayType, getThreshold per kontrakt, proportional platform fee (500 zł/pkt/mc za aktywne dni), execute-hold endpoint, export CSV+HTML dla inwestora | ✅ **deployed 26.08.2026** (Cloudflare Workers) |
 
 ## Znany dług techniczny (przed wdrożeniem pilotażowym)
 
