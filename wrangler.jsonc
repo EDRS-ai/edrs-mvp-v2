@@ -33,6 +33,8 @@
   "routes": [
     { "pattern": "app.edrs.io", "custom_domain": true }
   ],
+  // Fallback URL (workers.dev) zostaje aktywny obok domeny produkcyjnej.
+  "workers_dev": true,
 
   // Cron co godzinę — agenci wewnętrzni (runAllAgents), jak triggers.schedule w app.md.
   "triggers": {

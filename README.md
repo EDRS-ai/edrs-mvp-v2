@@ -2,7 +2,7 @@
 
 **Clean rebuild** per Sprint 2 spec — system rozliczeń kaucyjnych dla sieci RVM w Polsce (Śląsk/Wrocław pilot).
 Dev/preview (Sauna): https://edrs-mvp-v2-m75lwujx.sauna.new/
-Produkcja: https://edrs-platform.edrs-mvp-v2.workers.dev (Cloudflare Workers, deploy 26.08.2026) — patrz sekcja **Deployment** niżej.
+Produkcja: **https://app.edrs.io** (Cloudflare Workers, deploy 26.08.2026; fallback: https://edrs-platform.edrs-mvp-v2.workers.dev) — patrz sekcja **Deployment** niżej.
 
 ## Deployment (produkcja: Cloudflare Workers)
 
