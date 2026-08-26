@@ -13,7 +13,7 @@
 // 5. Platforma (PLATFORM_SUBSCRIPTION + PLATFORM_SETTLEMENT_FEE) — abonament + 0,5% z rate_cards
 
 import { newToken } from "./auth";
-import { makeDb } from "../db";
+// makeDb (Neon path) nieużywany po przejściu batch INSERT na env.sql — patrz insertLedgerEntriesBatch.
 import { ledgerEntries } from "../schema";
 
 // Typy entry_type (słownik z PROMPT 3):
@@ -183,8 +183,28 @@ export async function insertLedgerEntry(env: any, params: {
 // Returns number of rows inserted. IDs are not returned in batch mode (use last_insert_rowid for last id).
 export async function insertLedgerEntriesBatch(env: any, entries: Array<typeof ledgerEntries.$inferInsert>): Promise<number> {
   if (entries.length === 0) return 0;
-  const db = makeDb(env);
-  await db.batch(entries.map(e => db.insert(ledgerEntries).values(e)));
+  // Deploy/cloudflare-prod: bez drizzle db.batch() — bezpośrednie INSERTy przez env.sql,
+  // spójnie z insertLedgerEntry. Na DO SQLite batch i tak był sekwencyjny (patrz komentarz
+  // wyżej), a single-writer semantyka Durable Object gwarantuje spójność sekwencji hash chain.
+  // Kolejność entries MUSI być zachowana (prev_hash → entry_hash policzone przez callera).
+  const stmt =
+    "INSERT INTO ledger_entries (cycle_id, entry_type, party_org_id, direction, amount_net, vat_rate, vat_amount, amount_gross, " +
+    "location_id, device_id, event_date, operational_date, booking_date, source_event_id, end_to_end_id, invoice_id, " +
+    "rate_card_id, reversal_of_id, prev_hash, entry_hash, author, source, created_at) " +
+    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+  for (const e of entries) {
+    env.sql.exec(stmt, [
+      e.cycleId, e.entryType, e.partyOrgId ?? null, e.direction,
+      e.amountNet, e.vatRate ?? null, e.vatAmount, e.amountGross,
+      e.locationId ?? null, e.deviceId ?? null,
+      e.eventDate ?? null, e.operationalDate ?? null, e.bookingDate ?? null,
+      e.sourceEventId ?? null, e.endToEndId ?? null, e.invoiceId ?? null,
+      e.rateCardId ?? null, e.reversalOfId ?? null,
+      e.prevHash ?? null, e.entryHash ?? null,
+      e.author ?? "system", e.source ?? "engine",
+      e.createdAt ?? Date.now(),
+    ]);
+  }
   return entries.length;
 }
 
@@ -255,7 +275,19 @@ export async function runSettlementEngine(env: any, cycleId: number, cycle: any)
     return { entriesCreated: 0, partySummary: [], errors };
   }
 
-  // 2. Wyczyść stare pozycje (draft można przeliczać)
+  // 2. Wyczyść stare pozycje (draft można przeliczać).
+  // Najpierw zależne settlement_legs/groups (FK legs.ledger_entry_id → ledger_entries.id):
+  // po przeliczeniu wpisów stare legi i tak wskazywałyby usunięte pozycje. Na Saunie
+  // (foreign_keys=OFF) DELETE zostawiał osierocone legi; DO SQLite egzekwuje FK i słusznie
+  // blokował recompute. Legi odtwarza ponownie seed showcase / przyszły proces settlement.
+  env.sql.exec(
+    "DELETE FROM settlement_legs WHERE ledger_entry_id IN (SELECT id FROM ledger_entries WHERE cycle_id = ? AND reversal_of_id IS NULL)",
+    [cycleId]
+  );
+  env.sql.exec(
+    "DELETE FROM settlement_groups WHERE cycle_id = ? AND id NOT IN (SELECT group_id FROM settlement_legs)",
+    [cycleId]
+  );
   env.sql.exec("DELETE FROM ledger_entries WHERE cycle_id = ? AND reversal_of_id IS NULL", [cycleId]);
 
   // 3. Pobierz operator_credits dla cyklu

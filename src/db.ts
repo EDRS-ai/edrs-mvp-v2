@@ -29,12 +29,22 @@ export function makeDb(env: any) {
     return drizzleNeon(sql, { schema });
   }
   // DEVELOPMENT path — Cloudflare DO SQLite (pilot <250 pkt, no setup)
-  return drizzleSqlite(async (sql: string, params: any[], method: string) => {
+  const run = async (sql: string, params: any[], method: string) => {
     if (method === "run") {
       env.sql.exec(sql, params);
       return { rows: [] };
     }
     const { rows } = env.sql.raw(sql, params);
     return { rows: method === "get" ? (rows[0] ?? []) : rows };
-  }, { schema });
+  };
+  // Batch callback jest WYMAGANY przez sqlite-proxy, żeby db.batch() działał
+  // (bez niego insertLedgerEntriesBatch rzuca "batchCLient is not a function").
+  // DO SQLite nie ma multi-statement batcha — wykonujemy sekwencyjnie; spójność
+  // zapewnia single-writer semantyka Durable Object.
+  const runBatch = async (queries: { sql: string; params: any[]; method: string }[]) => {
+    const results = [];
+    for (const q of queries) results.push(await run(q.sql, q.params, q.method));
+    return results;
+  };
+  return drizzleSqlite(run, runBatch, { schema });
 }

@@ -55,7 +55,11 @@ export class EdrsDatabase extends DurableObject<WorkerEnv> {
     const sql = this.ctx.storage.sql;
     return {
       sql: {
-        exec: (q: string, params: any[] = []) => { sql.exec(q, ...params); },
+        // Kontrakt Sauny: exec zwraca obiekt z rowsWritten (używane w lib/mvp.ts).
+        exec: (q: string, params: any[] = []) => {
+          const cursor = sql.exec(q, ...params);
+          return { rowsWritten: cursor.rowsWritten };
+        },
         query: <T = any>(q: string, params: any[] = []): T[] => [...sql.exec(q, ...params)] as T[],
         raw: (q: string, params: any[] = []) => ({ rows: [...sql.exec(q, ...params).raw()] }),
       },

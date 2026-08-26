@@ -26,7 +26,11 @@ export function makeSqlEnv(db: InstanceType<typeof Database>) {
   return {
     db,
     sql: {
-      exec: (sql: string, params: any[] = []) => db.prepare(sql).run(...params),
+      // rowsWritten — kontrakt env.sql.exec (Sauna/worker.ts); mvp.ts na tym polega.
+      exec: (sql: string, params: any[] = []) => {
+        const info = db.prepare(sql).run(...params);
+        return { ...info, rowsWritten: info.changes };
+      },
       query: <T = any>(sql: string, params: any[] = []): T[] => db.prepare(sql).all(...params) as T[],
       raw: (sql: string, params: any[] = []) => ({ rows: db.prepare(sql).all(...params) }),
     },
