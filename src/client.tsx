@@ -38,6 +38,79 @@ const Icon = ({ d, className = "w-4 h-4" }: { d: string; className?: string }) =
   </svg>
 );
 
+function ChangePasswordModal({ onClose }: { onClose: () => void }) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [repeat, setRepeat] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+  const submit = async (e: any) => {
+    e.preventDefault();
+    setError("");
+    if (next.length < 6) { setError("Nowe hasło musi mieć min. 6 znaków."); return; }
+    if (next !== repeat) { setError("Nowe hasła nie są identyczne."); return; }
+    setBusy(true);
+    try {
+      await api("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: current, newPassword: next }),
+      });
+      setDone(true);
+    } catch (err: any) {
+      const map: Record<string, string> = {
+        invalid_current_password: "Obecne hasło jest nieprawidłowe.",
+        password_too_short: "Nowe hasło musi mieć min. 6 znaków.",
+        missing_fields: "Wypełnij wszystkie pola.",
+      };
+      setError(map[err.message] ?? `Błąd: ${err.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6" onClick={(e: any) => e.stopPropagation()}>
+        <h3 className="font-heading text-lg font-bold text-brand-navy mb-4">Zmiana hasła</h3>
+        {done ? (
+          <div>
+            <div className="text-sm bg-green-50 border border-green-200 text-green-700 rounded p-3 mb-4">
+              Hasło zostało zmienione. Pozostałe sesje zostały wylogowane.
+            </div>
+            <button onClick={onClose} className="w-full py-2 bg-brand-blue text-white rounded font-semibold text-sm">Zamknij</button>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Obecne hasło</label>
+              <input type="password" value={current} onChange={(e: any) => setCurrent(e.target.value)} autoComplete="current-password"
+                className="w-full border rounded px-3 py-2 text-sm" required />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Nowe hasło (min. 6 znaków)</label>
+              <input type="password" value={next} onChange={(e: any) => setNext(e.target.value)} autoComplete="new-password"
+                className="w-full border rounded px-3 py-2 text-sm" required />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Powtórz nowe hasło</label>
+              <input type="password" value={repeat} onChange={(e: any) => setRepeat(e.target.value)} autoComplete="new-password"
+                className="w-full border rounded px-3 py-2 text-sm" required />
+            </div>
+            {error && <div className="text-sm bg-red-50 border border-red-200 text-red-700 rounded p-2">{error}</div>}
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={onClose} className="flex-1 py-2 border rounded text-sm">Anuluj</button>
+              <button type="submit" disabled={busy} className="flex-1 py-2 bg-brand-blue text-white rounded font-semibold text-sm disabled:opacity-50">
+                {busy ? "Zapisywanie..." : "Zmień hasło"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function NavShell({
   title, nav, activeView, setView, user, onLogout, children,
 }: {
@@ -52,6 +125,7 @@ function NavShell({
 }) {
   // PROMPT 12: mobile drawer. PROMPT 14: szata graficzna eMieszkaniec (granatowy sidebar, pomaranczowy akcent).
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
   const pick = (id: string) => { setView(id); setMenuOpen(false); };
   return (
     <div className="min-h-screen bg-gray-100">
@@ -85,6 +159,9 @@ function NavShell({
               <div className="text-xs text-blue-100/60 truncate">{user.email}</div>
             </div>
           </div>
+          <button onClick={() => setPwOpen(true)} className="p-2 text-blue-100/70 hover:bg-white/10 hover:text-white rounded-md shrink-0" title="Zmień hasło">
+            <Icon d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+          </button>
           <button onClick={onLogout} className="p-2 text-blue-100/70 hover:bg-white/10 hover:text-white rounded-md shrink-0" title="Wyloguj">
             <Icon d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </button>
@@ -102,6 +179,7 @@ function NavShell({
         </div>
       </header>
       <main className="lg:ml-64 mt-16 p-4 lg:p-6 min-w-0">{children}</main>
+      {pwOpen && <ChangePasswordModal onClose={() => setPwOpen(false)} />}
     </div>
   );
 }

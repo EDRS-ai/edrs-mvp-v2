@@ -167,6 +167,30 @@ export function createApp() {
     return c.json({ ok: true });
   });
 
+  app.post("/api/auth/change-password", async (c) => {
+    const me = c.get(APP_USER_KEY) as AppUser;
+    let body: any;
+    try { body = await c.req.json(); } catch { return c.json({ error: "invalid_json" }, 400); }
+    const currentPassword = String(body?.currentPassword ?? "");
+    const newPassword = String(body?.newPassword ?? "");
+    if (!currentPassword || !newPassword) return c.json({ error: "missing_fields" }, 400);
+    if (newPassword.length < 6) return c.json({ error: "password_too_short" }, 400);
+    const rows = c.env.sql.query<{ password_hash: string; salt: string }>(
+      "SELECT password_hash, salt FROM users WHERE id = ?", [me.id]
+    );
+    if (rows.length === 0) return c.json({ error: "unauthorized" }, 401);
+    const ok = await verifyPassword(currentPassword, rows[0].salt, rows[0].password_hash);
+    if (!ok) return c.json({ error: "invalid_current_password" }, 401);
+    const pwd = await hashPassword(newPassword);
+    c.env.sql.exec("UPDATE users SET password_hash = ?, salt = ? WHERE id = ?", [pwd.hash, pwd.salt, me.id]);
+    // Rotacja sesji: po zmianie hasła unieważnij wszystkie inne sesje użytkownika,
+    // bieżąca zostaje (ten sam wymóg co token rotation przy loginie).
+    const token = getCookie(c, SESSION_COOKIE);
+    c.env.sql.exec("DELETE FROM sessions WHERE user_id = ? AND token != ?", [me.id, token ?? ""]);
+    logEvent(c.env, { eventType: "password_changed", actorId: me.id });
+    return c.json({ ok: true });
+  });
+
   app.get("/api/invites/:token", async (c) => {
     const token = c.req.param("token");
     const rows = c.env.sql.query<{ role: string; label: string; status: string }>(
@@ -231,6 +255,27 @@ export function createApp() {
     ensureAccessRequestsTable(c.env);
     c.env.sql.exec("UPDATE access_requests SET handled_at = ? WHERE id = ?", [Date.now(), Number(c.req.param("id"))]);
     return c.json({ ok: true });
+  });
+
+  // Tworzenie organizacji (dotąd tylko seed) — potrzebne do onboardingu realnych
+  // partnerów pilotażu (np. Elion Group). Typ ograniczony do bezpiecznych wartości.
+  app.post("/api/admin/organizations", requireMaster, async (c) => {
+    const b = await c.req.json().catch(() => ({}));
+    const name = String(b.name ?? "").trim().slice(0, 200);
+    const type = String(b.type ?? "investor").trim();
+    const nip = b.nip ? String(b.nip).trim().slice(0, 20) : null;
+    if (name.length < 3) return c.json({ error: "missing_name" }, 400);
+    if (!["investor", "housing_coop", "carrier"].includes(type)) return c.json({ error: "invalid_type" }, 400);
+    const dup = c.env.sql.query<{ id: number }>("SELECT id FROM organizations WHERE name = ? LIMIT 1", [name]);
+    if (dup.length > 0) return c.json({ ok: true, id: dup[0].id, already: true });
+    const now = Date.now();
+    c.env.sql.exec(
+      "INSERT INTO organizations (type, name, nip, status, created_at, updated_at, version) VALUES (?, ?, ?, 'active', ?, ?, 1)",
+      [type, name, nip, now, now]
+    );
+    const id = Number(c.env.sql.query<{ id: number }>("SELECT last_insert_rowid() AS id")[0].id);
+    logEvent(c.env, { eventType: "organization_created", payload: { id, name, type } });
+    return c.json({ ok: true, id });
   });
 
   // PROMPT 8: mapowanie legacy investors.id → organizations.id. Seed PROMPT 1 celowo
