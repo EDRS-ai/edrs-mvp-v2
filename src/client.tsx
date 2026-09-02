@@ -574,7 +574,11 @@ function LoginScreen({ onSuccess }: { onSuccess: (u: User) => void }) {
       const data = await api("/api/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password }) });
       // PROMPT 0: token not stored client-side. Cookie is the only auth channel.
       onSuccess(data.user);
-    } catch (err: any) { setError(err.message ?? "Błąd logowania"); }
+    } catch (err: any) {
+      setError(err.message === "too_many_attempts"
+        ? "Za dużo nieudanych prób logowania. Odczekaj 10 minut i spróbuj ponownie."
+        : err.message === "invalid_credentials" ? "Błędny e-mail lub hasło." : (err.message ?? "Błąd logowania"));
+    }
     finally { setBusy(false); }
   };
   return (
@@ -758,7 +762,15 @@ function MasterMaszyny() {
                 </div>
               </div>
               {m.point_id ? (
-                <div className="text-sm px-3 py-1.5 bg-green-50 text-green-800 rounded-full font-medium">→ {m.point_id}</div>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2" title={`szacowane zapełnienie (pojemność ${m.capacity ?? 300} szt.)`}>
+                    <div className="w-24 h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div className={`h-full ${(m.fill_level ?? 0) >= 80 ? "bg-red-500" : (m.fill_level ?? 0) >= 50 ? "bg-yellow-500" : "bg-green-500"}`} style={{ width: `${m.fill_level ?? 0}%` }} />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">{m.fill_level ?? 0}%</span>
+                  </div>
+                  <div className="text-sm px-3 py-1.5 bg-green-50 text-green-800 rounded-full font-medium">→ {m.point_id}</div>
+                </div>
               ) : (
                 <div className="flex items-center gap-2">
                   <select value={sel[m.serial] ?? ""} onChange={(e) => setSel((s) => ({ ...s, [m.serial]: (e.target as HTMLSelectElement).value }))} className="px-2 py-1.5 border border-gray-300 rounded-md text-sm">

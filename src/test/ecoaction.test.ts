@@ -95,3 +95,28 @@ describe("konektor EcoAction", () => {
     expect(s.staged).toBe(0);
   });
 });
+
+describe("wskaźnik zapełnienia (estymacja)", () => {
+  let env: any;
+  beforeEach(() => {
+    env = makeSqlEnv(makeMigratedDb());
+    env.ECOACTION_BLOB_SAS = "sp=rl&sig=test";
+    env.sql.exec("INSERT INTO locations (id, address, district, fill_level, status, monthly_packages, created_at, updated_at, version) VALUES ('NET-011', 'Gliwice, ul. Jasna 2-4', 'Gliwice', 0, 'online', 0, 1, 1, 1)", []);
+    vi.stubGlobal("fetch", mockBlobFetch());
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("transakcje po ostatnim totalu podnoszą fill_level punktu; total zeruje", async () => {
+    assignMachine(env, "M5052588", "NET-011", 10); // pojemność 10 szt.
+    await syncEcoActionBlob(env);
+    // transaction t1 (1 szt.) jest PO totalu (occurred_at t1 > total)? W mocku total ma
+    // transactionEndDate identyczny — ustaw ręcznie chronologię: total wcześniej.
+    env.sql.exec("UPDATE rvm_events SET occurred_at = 1000 WHERE message_type = 'total'", []);
+    env.sql.exec("UPDATE rvm_events SET occurred_at = 2000 WHERE message_type = 'transaction'", []);
+    const { updateEstimatedFill } = await import("../lib/ecoaction");
+    const fill = updateEstimatedFill(env, "M5052588");
+    expect(fill).toBe(10); // 1 szt. / 10 pojemności = 10%
+    const loc = env.sql.query("SELECT fill_level FROM locations WHERE id = 'NET-011'")[0];
+    expect(loc.fill_level).toBe(10);
+  });
+});

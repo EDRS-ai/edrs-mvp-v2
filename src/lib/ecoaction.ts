@@ -41,8 +41,33 @@ export function ensureEcoActionTables(env: any) {
   env.sql.exec(`CREATE TABLE IF NOT EXISTS machine_map (
     serial TEXT PRIMARY KEY,
     point_id TEXT NOT NULL,
+    capacity INTEGER NOT NULL DEFAULT 300,
     created_at INTEGER NOT NULL
   )`, []);
+  // Backfill kolumny capacity dla tabel utworzonych przed jej dodaniem.
+  const cols = new Set(env.sql.query<{ name: string }>("SELECT name FROM pragma_table_info('machine_map')").map((r: any) => r.name));
+  if (!cols.has("capacity")) env.sql.exec("ALTER TABLE machine_map ADD COLUMN capacity INTEGER NOT NULL DEFAULT 300", []);
+}
+
+// Szacowane zapełnienie: suma opakowań z transakcji od ostatniego opróżnienia
+// vs pojemność maszyny (domyślnie 300 szt. — z danych testowych: total przy 299).
+// Zastąpi je precyzyjny licznikZapeln, gdy EcoAction doda pole do transakcji
+// (potwierdzone przez D. Galwasa 19.08) — wtedy parser czyta pole zamiast liczyć.
+export function updateEstimatedFill(env: any, serial: string): number | null {
+  const map = env.sql.query<{ point_id: string; capacity: number }>(
+    "SELECT point_id, capacity FROM machine_map WHERE serial = ?", [serial]
+  )[0];
+  if (!map) return null;
+  const lastTotal = env.sql.query<{ t: number }>(
+    "SELECT MAX(occurred_at) AS t FROM rvm_events WHERE machine_serial = ? AND message_type = 'total'", [serial]
+  )[0]?.t ?? 0;
+  const sum = Number(env.sql.query<{ s: number }>(
+    "SELECT COALESCE(SUM(packages), 0) AS s FROM rvm_events WHERE machine_serial = ? AND message_type = 'transaction' AND occurred_at > ?",
+    [serial, lastTotal ?? 0]
+  )[0]?.s ?? 0);
+  const fill = Math.min(100, Math.round((sum / Math.max(1, map.capacity)) * 100));
+  env.sql.exec("UPDATE locations SET fill_level = ?, updated_at = ? WHERE id = ?", [fill, Date.now(), map.point_id]);
+  return fill;
 }
 
 // Listing kontenera z paginacją. Zwraca ścieżki blobów (nazwy plików .json).
@@ -151,6 +176,11 @@ export async function syncEcoActionBlob(env: any, opts?: { maxFiles?: number }):
     }
   }
 
+  // Po ingest: odśwież szacowane zapełnienie wszystkich zmapowanych maszyn.
+  for (const serial of mapping.keys()) {
+    try { updateEstimatedFill(env, serial as string); } catch { /* fill jest best-effort */ }
+  }
+
   env.sql.exec(
     "INSERT INTO event_log (event_type, payload_json, source, created_at) VALUES ('ecoaction.sync_completed', ?, 'ecoaction_sync', ?)",
     [JSON.stringify(stats).slice(0, 4000), Date.now()]
@@ -159,13 +189,14 @@ export async function syncEcoActionBlob(env: any, opts?: { maxFiles?: number }):
 }
 
 // Przypisanie maszyny do punktu + wsteczna materializacja zaległych totali.
-export function assignMachine(env: any, serial: string, pointId: string): { ok: boolean; error?: string; materialized?: number } {
+export function assignMachine(env: any, serial: string, pointId: string, capacity?: number): { ok: boolean; error?: string; materialized?: number } {
   ensureEcoActionTables(env);
   const loc = env.sql.query<{ id: string }>("SELECT id FROM locations WHERE id = ? AND deleted_at IS NULL", [pointId]);
   if (loc.length === 0) return { ok: false, error: "Punkt nie istnieje" };
+  const cap = Math.max(1, Math.round(Number(capacity ?? 300) || 300));
   env.sql.exec(
-    "INSERT INTO machine_map (serial, point_id, created_at) VALUES (?, ?, ?) ON CONFLICT(serial) DO UPDATE SET point_id = excluded.point_id",
-    [serial, pointId, Date.now()]
+    "INSERT INTO machine_map (serial, point_id, capacity, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(serial) DO UPDATE SET point_id = excluded.point_id, capacity = excluded.capacity",
+    [serial, pointId, cap, Date.now()]
   );
   const pending = env.sql.query<any>(
     "SELECT id, packages, occurred_at, ingested_at FROM rvm_events WHERE machine_serial = ? AND message_type = 'total' AND collection_id IS NULL",
@@ -173,6 +204,7 @@ export function assignMachine(env: any, serial: string, pointId: string): { ok: 
   );
   let materialized = 0;
   for (const ev of pending) { materializeTotal(env, ev, pointId); materialized++; }
+  updateEstimatedFill(env, serial);
   env.sql.exec(
     "INSERT INTO event_log (point_id, event_type, payload_json, source, created_at) VALUES (?, 'machine.assigned', ?, 'admin_ui', ?)",
     [pointId, JSON.stringify({ serial, pointId, materialized }), Date.now()]
@@ -183,14 +215,18 @@ export function assignMachine(env: any, serial: string, pointId: string): { ok: 
 // Widok dla panelu: maszyny widziane w stagingu + stan mapowania.
 export function listMachines(env: any) {
   ensureEcoActionTables(env);
-  return env.sql.query<any>(
+  const rows = env.sql.query<any>(
     `SELECT e.machine_serial AS serial,
             COUNT(*) AS events,
             SUM(CASE WHEN e.message_type = 'total' THEN 1 ELSE 0 END) AS totals,
             SUM(CASE WHEN e.message_type = 'total' AND e.collection_id IS NULL THEN 1 ELSE 0 END) AS pending_totals,
             MAX(e.occurred_at) AS last_event_at,
-            m.point_id
-       FROM rvm_events e LEFT JOIN machine_map m ON m.serial = e.machine_serial
+            m.point_id, m.capacity,
+            l.fill_level
+       FROM rvm_events e
+       LEFT JOIN machine_map m ON m.serial = e.machine_serial
+       LEFT JOIN locations l ON l.id = m.point_id
       GROUP BY e.machine_serial ORDER BY e.machine_serial`
   );
+  return rows;
 }

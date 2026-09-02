@@ -134,17 +134,41 @@ export function createApp() {
   });
 
 
+  // Rate-limit logowania: max 5 nieudanych prób na e-mail w 10-minutowym oknie.
+  // Licznik czyszczony po udanym logowaniu. Tabela lazy (CREATE IF NOT EXISTS —
+  // ta baza powstaje seedem, nie migracjami, patrz worker.ts/applyMigrations).
+  const LOGIN_MAX_FAILS = 5;
+  const LOGIN_WINDOW_MS = 10 * 60_000;
+  function ensureLoginAttemptsTable(env: any) {
+    env.sql.exec("CREATE TABLE IF NOT EXISTS login_attempts (email TEXT NOT NULL, at INTEGER NOT NULL)", []);
+    env.sql.exec("CREATE INDEX IF NOT EXISTS login_attempts_email_idx ON login_attempts(email, at)", []);
+  }
+
   app.post("/api/auth/login", async (c) => {
     const { email, password } = await c.req.json<{ email: string; password: string }>();
     if (!email || !password) return c.json({ error: "missing_fields" }, 400);
+    ensureLoginAttemptsTable(c.env);
+    const emailKey = String(email).toLowerCase().trim();
+    const windowStart = Date.now() - LOGIN_WINDOW_MS;
+    const fails = Number(c.env.sql.query<{ n: number }>(
+      "SELECT COUNT(*) AS n FROM login_attempts WHERE email = ? AND at > ?", [emailKey, windowStart]
+    )[0]?.n ?? 0);
+    if (fails >= LOGIN_MAX_FAILS) {
+      return c.json({ error: "too_many_attempts", detail: "Za dużo nieudanych prób. Spróbuj ponownie za 10 minut." }, 429);
+    }
+    const recordFail = () => {
+      c.env.sql.exec("INSERT INTO login_attempts (email, at) VALUES (?, ?)", [emailKey, Date.now()]);
+      c.env.sql.exec("DELETE FROM login_attempts WHERE at < ?", [windowStart]);
+    };
     const rows = c.env.sql.query<{ id: number; email: string; name: string; role: string; investor_id: number | null; driver_id: number | null; password_hash: string; salt: string }>(
       "SELECT id, email, name, role, investor_id, driver_id, password_hash, salt FROM users WHERE email = ?",
-      [email.toLowerCase()]
+      [emailKey]
     );
-    if (rows.length === 0) return c.json({ error: "invalid_credentials" }, 401);
+    if (rows.length === 0) { recordFail(); return c.json({ error: "invalid_credentials" }, 401); }
     const u = rows[0];
     const ok = await verifyPassword(password, u.salt, u.password_hash);
-    if (!ok) return c.json({ error: "invalid_credentials" }, 401);
+    if (!ok) { recordFail(); return c.json({ error: "invalid_credentials" }, 401); }
+    c.env.sql.exec("DELETE FROM login_attempts WHERE email = ?", [emailKey]);
     // PROMPT 0: token rotation. Fresh token per login — no reuse of any prior session.
     const token = newToken();
     const now = Date.now();
@@ -274,7 +298,7 @@ export function createApp() {
     const serial = String(b.serial ?? "").trim();
     const pointId = String(b.pointId ?? "").trim().toUpperCase();
     if (!serial || !pointId) return c.json({ error: "missing_fields" }, 400);
-    const r = assignMachine(c.env, serial, pointId);
+    const r = assignMachine(c.env, serial, pointId, b.capacity ? Number(b.capacity) : undefined);
     if (!r.ok) return c.json({ error: r.error }, 400);
     return c.json({ ok: true, materialized: r.materialized });
   });
