@@ -25,6 +25,7 @@ import { saveDocument, readDocument, listDocuments, statementPeriods, renderStat
 import { renderRegulamin, renderPolitykaPrywatnosci } from "./lib/legal";
 import { getSettlementManifest, bankDataRoomPackage, recordDriverJobEvent } from "./lib/mvp";
 import { energyDashboard, validateEnergyInvoice, seedEnergyDemo } from "./lib/energy";
+import { syncEcoActionBlob, assignMachine, listMachines } from "./lib/ecoaction";
 import { costDashboard, validateCostInvoice, seedCosts } from "./lib/costs";
 
 type Bindings = { sql: any; websocket: any; ctx: AppCtx };
@@ -255,6 +256,27 @@ export function createApp() {
     ensureAccessRequestsTable(c.env);
     c.env.sql.exec("UPDATE access_requests SET handled_at = ? WHERE id = ?", [Date.now(), Number(c.req.param("id"))]);
     return c.json({ ok: true });
+  });
+
+  // ── Konektor EcoAction (blob → staging → collections) ────────────────────
+  app.post("/api/admin/ecoaction/sync", requireMaster, async (c) => {
+    const maxFiles = Math.min(Number(c.req.query("max") ?? 200) || 200, 1000);
+    const stats = await syncEcoActionBlob(c.env, { maxFiles });
+    return c.json({ ok: stats.errors.length === 0, ...stats });
+  });
+
+  app.get("/api/admin/machines", requireMaster, async (c) => {
+    return c.json({ machines: listMachines(c.env) });
+  });
+
+  app.post("/api/admin/machines", requireMaster, async (c) => {
+    const b = await c.req.json().catch(() => ({}));
+    const serial = String(b.serial ?? "").trim();
+    const pointId = String(b.pointId ?? "").trim().toUpperCase();
+    if (!serial || !pointId) return c.json({ error: "missing_fields" }, 400);
+    const r = assignMachine(c.env, serial, pointId);
+    if (!r.ok) return c.json({ error: r.error }, 400);
+    return c.json({ ok: true, materialized: r.materialized });
   });
 
   // Tworzenie organizacji (dotąd tylko seed) — potrzebne do onboardingu realnych

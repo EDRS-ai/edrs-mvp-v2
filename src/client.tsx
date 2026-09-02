@@ -666,6 +666,7 @@ function MasterApp({ user, onLogout }: { user: User; onLogout: () => void }) {
     { id: "agents", label: "Agenci", icon: "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
     { id: "wiadomosci", label: "Wiadomości", icon: "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" },
     { id: "zgloszenia", label: "Zgłoszenia", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
+    { id: "maszyny", label: "Maszyny", icon: "M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" },
     { id: "dokumenty", label: "Dokumenty", icon: "M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
     { id: "sprawozdania", label: "Sprawozdania", icon: "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
   ];
@@ -696,9 +697,82 @@ function MasterApp({ user, onLogout }: { user: User; onLogout: () => void }) {
       {view === "agents" && <MasterAgents />}
       {view === "wiadomosci" && <MasterWiadomosci />}
       {view === "zgloszenia" && <MasterZgloszenia />}
+      {view === "maszyny" && <MasterMaszyny />}
       {view === "dokumenty" && <MasterDokumenty />}
       {view === "sprawozdania" && <MasterSprawozdania />}
     </NavShell>
+  );
+}
+
+// Zakładka Maszyny — konektor EcoAction: maszyny widziane na blobie + mapowanie na punkty.
+function MasterMaszyny() {
+  const [machines, setMachines] = useState<any[] | null>(null);
+  const [locations, setLocations] = useState<any[]>([]);
+  const [sel, setSel] = useState<Record<string, string>>({});
+  const [syncing, setSyncing] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const reload = useCallback(async () => {
+    try {
+      setError(null);
+      const [m, l] = await Promise.all([api("/api/admin/machines"), api("/api/admin/locations")]);
+      setMachines(m.machines); setLocations(l.locations);
+    } catch (err: any) { setError(err.message); }
+  }, []);
+  useEffect(() => { reload(); }, [reload]);
+  const runSync = async () => {
+    setSyncing(true); setMsg(null);
+    try {
+      const r = await api("/api/admin/ecoaction/sync?max=1000", { method: "POST" });
+      setMsg(`Sync: ${r.listed} plików na blobie, ${r.staged} nowych, ${r.materialized} odbiorów utworzonych${r.errors?.length ? `, błędy: ${r.errors.length}` : ""}`);
+      reload();
+    } catch (err: any) { setMsg(`Błąd synchronizacji: ${err.message}`); }
+    finally { setSyncing(false); }
+  };
+  const assign = async (serial: string) => {
+    const pointId = sel[serial];
+    if (!pointId) return;
+    const r = await api("/api/admin/machines", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ serial, pointId }) });
+    setMsg(`Maszyna ${serial} → ${pointId}${r.materialized ? ` (zmaterializowano ${r.materialized} zaległych opróżnień)` : ""}`);
+    reload();
+  };
+  if (error) return <ErrorBox message={error} />;
+  if (!machines) return <Loading />;
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <div className="text-sm text-gray-600">Dane z bloba EcoAction wpadają automatycznie co godzinę (cron). Opróżnienia maszyn zmapowanych na punkty stają się odbiorami w rozliczeniach.</div>
+        <button onClick={runSync} disabled={syncing} className="px-4 py-2 bg-brand-blue text-white rounded-md text-sm font-medium hover:bg-brand-bluedark disabled:opacity-50">{syncing ? "Synchronizuję..." : "Synchronizuj teraz"}</button>
+      </div>
+      {msg && <div className="text-sm bg-brand-bluelight text-brand-navy p-2.5 rounded mb-4">{msg}</div>}
+      {machines.length === 0 && <div className="p-8 text-center text-gray-500">Brak danych z maszyn. Kliknij „Synchronizuj teraz", żeby pobrać pliki z bloba EcoAction.</div>}
+      <div className="space-y-3">
+        {machines.map((m) => (
+          <div key={m.serial} className={`bg-white rounded-lg border p-5 ${m.point_id ? "border-gray-200" : "border-brand-orange"}`}>
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div>
+                <div className="font-semibold font-mono">{m.serial}</div>
+                <div className="text-sm text-gray-500 mt-0.5">
+                  {fmtInt(m.events)} zdarzeń · {fmtInt(m.totals)} opróżnień{m.pending_totals > 0 ? ` (${m.pending_totals} czeka na mapowanie)` : ""}
+                  {m.last_event_at ? ` · ostatnie: ${fmtDateTime(m.last_event_at)}` : ""}
+                </div>
+              </div>
+              {m.point_id ? (
+                <div className="text-sm px-3 py-1.5 bg-green-50 text-green-800 rounded-full font-medium">→ {m.point_id}</div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <select value={sel[m.serial] ?? ""} onChange={(e) => setSel((s) => ({ ...s, [m.serial]: (e.target as HTMLSelectElement).value }))} className="px-2 py-1.5 border border-gray-300 rounded-md text-sm">
+                    <option value="">— wybierz punkt —</option>
+                    {locations.map((l) => <option key={l.id} value={l.id}>{l.id} · {l.address}</option>)}
+                  </select>
+                  <button onClick={() => assign(m.serial)} disabled={!sel[m.serial]} className="px-3 py-1.5 bg-brand-orange text-white rounded-md text-sm font-medium hover:bg-brand-orangedark disabled:opacity-50">Przypisz</button>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

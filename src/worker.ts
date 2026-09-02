@@ -16,12 +16,14 @@ import { DurableObject } from "cloudflare:workers";
 import { createApp } from "./handler";
 import { ensureSeeded } from "./lib/seed";
 import { runAllAgents } from "./lib/agents";
+import { syncEcoActionBlob } from "./lib/ecoaction";
 import migrationsBundle from "../migrations/migrations.js";
 
 type WorkerEnv = {
   EDRS_DB: DurableObjectNamespace<EdrsDatabase>;
   ASSETS: Fetcher;
   DATABASE_URL?: string;
+  ECOACTION_BLOB_SAS?: string; // sekret wranglera (read+list SAS do bloba EcoAction)
 };
 
 export class EdrsDatabase extends DurableObject<WorkerEnv> {
@@ -68,6 +70,7 @@ export class EdrsDatabase extends DurableObject<WorkerEnv> {
       },
       ctx: { session: { isOwner: false } },
       DATABASE_URL: this.env.DATABASE_URL,
+      ECOACTION_BLOB_SAS: this.env.ECOACTION_BLOB_SAS,
     };
   }
 
@@ -76,11 +79,16 @@ export class EdrsDatabase extends DurableObject<WorkerEnv> {
     return app.fetch(request, this.makeAppEnv() as any);
   }
 
-  // Cron (worker scheduled() → RPC tutaj): seed-guard + agenci wewnętrzni.
+  // Cron (worker scheduled() → RPC tutaj): seed-guard + agenci + sync bloba EcoAction.
   async runScheduled(): Promise<void> {
     const env = this.makeAppEnv();
     await ensureSeeded(env);
     await runAllAgents(env);
+    try {
+      await syncEcoActionBlob(env);
+    } catch (e: any) {
+      console.error("[edrs] ecoaction sync error:", e?.message ?? String(e));
+    }
   }
 }
 
