@@ -10,7 +10,8 @@ Produkcja: **https://app.edrs.io** (Cloudflare Workers, deploy 26.08.2026; fallb
 - Compute: Cloudflare Workers (`edrs-platform`), entrypoint `src/worker.ts`.
 - Baza: SQLite w Durable Object `EdrsDatabase`, **jurysdykcja EU** (`jurisdiction("eu")` — dane nie opuszczają UE). Migracje `migrations/*.sql` aplikowane automatycznie przy pierwszym starcie DO, seed przy pierwszym requeście.
 - Frontend: statyczne assety z `public/` (assets binding); `npm run build` bunduje `client.js` (esbuild), `styles.css` (Tailwind CLI) i wenduje Leaflet — zero CDN-ów runtime'owych poza Google Fonts.
-- Cron: `0 * * * *` → `scheduled()` → agenci wewnętrzni (`lib/agents.ts`).
+- Cron: `0 * * * *` → `scheduled()` → agenci wewnętrzni (`lib/agents.ts`) + sync bloba EcoAction (`lib/ecoaction.ts`).
+- Moduły satelitarne platformy: **Monitor urządzeń** (https://monitor.edrs.io — osobna aplikacja Next.js, autor: Damian; hosting zewnętrzny za proxy strefy CF, wpięta w nawigację panelu mastera; wysyła X-Frame-Options: DENY, więc otwiera się w nowej karcie — osadzenie iframe wymagałoby zmiany nagłówków po jej stronie), **Landing** (edrs.io/www — Cloudflare Pages `edrs-landing`).
 - Ścieżka `DATABASE_URL` → Neon Postgres pozostaje w `src/db.ts`, ale **nie jest jeszcze aktywna** — ~495 wywołań idzie po synchronicznym `env.sql`; aktywacja wymaga przepisania warstwy danych (sync→async + dialekt PG). Do tego czasu NIE ustawiać `DATABASE_URL` na produkcji.
 - Sauna.new: zdegradowana do dev/preview (handler.ts zachowuje kompatybilny default export).
 
